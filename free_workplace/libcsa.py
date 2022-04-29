@@ -1,28 +1,25 @@
-import numpy as np
-import glob
-from rdkit import Chem
-from rdkit import DataStructs
-import random
-import pybel
-from .fragment_merge import *
-import tempfile
 import sys
-sys.path.insert(0, '%s/lib'%os.environ['GALAXY_PIPE_HOME'])
-import libGalaxy
-import Galaxy
-import multiprocessing as mp
-from .libfilter import prepare_catalog_filters
-from .in_silico_reaction import Reaction, get_dict_from_json_file, get_compl_mol_dict
-from .similarity_search import read_database_mol, pick_similar_compound
+import glob
+import random
 
-N_PROC_DOCK=1
+import Galaxy
+import numpy as np
+from rdkit import Chem
+
+from libfilter import prepare_catalog_filters
+from opps.fragment_merge import *
+from opps.in_silico_reaction import Reaction, get_dict_from_json_file, get_compl_mol_dict
+from opps.similarity_search import read_database_mol, pick_similar_compound
+
+N_PROC_DOCK = 1
+
 
 class CSA(object):
     def __init__(self, filter_lipinski=False, use_ML=True, ref_lig=None):
         #self.n_bank=192
         #self.n_bank_add=50
         #self.n_seed = 48
-        self.n_bank=48
+        self.n_bank = 48
         self.n_bank_add=50
         self.n_seed = 24
         #'dcut1': 2.0, # initial Dcut is the initial average diff / dcut1
@@ -44,7 +41,7 @@ class CSA(object):
         self.filter_lipinski=filter_lipinski
         #if filter_PAINS.HasMatch(mol):
         #    continue
-        
+
         #prep similarity search
         self.database_mol_s, self.database_mol_fp_s = read_database_mol(fn_database_mol)
 
@@ -57,7 +54,7 @@ class CSA(object):
         self.model_s = model_s
 
         self.ref_lig=ref_lig
-        
+
     def initialize_csa(self, job, prot_fn, init_bank_mol2_fn, cntr_R, n_proc=None):
         self.prot_fn = prot_fn
         self.cntr_R = cntr_R
@@ -114,9 +111,8 @@ class CSA(object):
             smiles = smiles.replace('[NH3]', '[NH3+]')
             smiles = smiles.replace('[NH2]', '[NH2+]')
             smiles = smiles.replace('[NH]', '[NH+]')
-            mol = Molecule(smiles=smiles, build_3d=False)
+            mol = Molecule.from_smiles(smiles, build_3d=False, source = 'INITIAL')
             #print(smiles)
-            mol.source = 'INITIAL'
             i_mol += 1
             if mol.RDKmol == None:
                 print('error processing %dth molecule'%i_mol)
@@ -173,7 +169,7 @@ class CSA(object):
                 dist_mat[i,j] = dist
                 dist_mat[j,i] = dist
         D_avg_new_conf = np.average(dist_mat)
-        self.D_cut = D_avg_new_conf/2.0 #factor_init_D_cut 
+        self.D_cut = D_avg_new_conf/2.0 #factor_init_D_cut
         self.D_min = D_avg_new_conf/5.0 #factor_min_D_cut
         self.xctdif = (self.D_cut/self.D_min)**(-1.0/nst)
 
@@ -228,8 +224,7 @@ class CSA(object):
                 gen_RDKmol_s = random.sample(gen_RDKmol_s, max_select_brics)
             for gen_RDKmol in gen_RDKmol_s:
                 try:
-                    new_mol = Molecule(RDKmol=gen_RDKmol, build_3d=True)
-                    new_mol.source='BRICS'
+                    new_mol = Molecule.from_rdkit(gen_RDKmol, build_3d=True, source="BRICS")
                     if len(new_mol.mol2_block) == 0:
                         continue
                     new_mol_s.append(new_mol)
@@ -241,7 +236,7 @@ class CSA(object):
             seed_mol = self.bank_pool[i_seed]
             random.shuffle(self.reaction_s)
             products_all = []
-            
+
             finish_reaction =False
             for reaction in self.reaction_s:
                 groups_found, groups_missing = reaction.check_reaction_components(seed_mol)
@@ -282,9 +277,9 @@ class CSA(object):
 
         # calc energy
         #for i_seed in seed_selected:
-        print(new_mol_s[0])   
+        print(new_mol_s[0])
         print(type(new_mol_s[0]))
-        #new_energy_s += 
+        #new_energy_s +=
 
         return new_mol_s, new_energy_s
 
@@ -328,7 +323,7 @@ class CSA(object):
         with open('csa_%d.log'%i_cycle, 'wt') as fp:
             for i_mol, mol in enumerate(self.bank_pool):
                 fp.write('%d %.3f %s %s\n'%(i_mol+1, self.energy_s[i_mol], mol.dock_path, mol.source))
-            
+
 
 if __name__=='__main__':
     if rank==0:
@@ -356,4 +351,3 @@ if __name__=='__main__':
         csa = CSA()
         csa.initialize_csa(job,prot_fn, mol2_fn, cntr)
         csa.run()
-

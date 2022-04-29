@@ -75,16 +75,16 @@ def check_catalog_filters(RDKmol, filters):
             break
     return filtered
 
-def main():
-    import sys
-    mol2_fn = sys.argv[1]
-    from fragment_merge import Molecule_Pool
-    mol_pool=Molecule_Pool(mol2_fn)
-    filters = prepare_catalog_filters(PAINS=True, ALL=True)
-    for mol in mol_pool:
-        check_catalog = check_catalog_filters(mol.RDKmol, filters)
-        check_lipinski = check_lipinski_filter(mol.RDKmol)
-        print(check_catalog, check_lipinski)
+# def main():
+#     import sys
+#     mol2_fn = sys.argv[1]
+#     from fragment_merge import Molecule_Pool
+#     mol_pool=Molecule_Pool(mol2_fn)
+#     filters = prepare_catalog_filters(PAINS=True, ALL=True)
+#     for mol in mol_pool:
+#         check_catalog = check_catalog_filters(mol.RDKmol, filters)
+#         check_lipinski = check_lipinski_filter(mol.RDKmol)
+#         print(check_catalog, check_lipinski)
 
-if __name__=='__main__':
-    main()
+# if __name__=='__main__':
+#     main()

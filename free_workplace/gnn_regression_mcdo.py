@@ -1,24 +1,14 @@
 import time
 import argparse
-
 from functools import partial
 
-import numpy as np
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from libs.io_utils import get_dataset
-from libs.io_utils import MyDataset
-from libs.io_utils import gnn_collate_fn
-
-from libs.models import MyModel
-
-from libs.utils import str2bool
-from libs.utils import set_seed
-from libs.utils import set_device
-from libs.utils import evaluate_regression
-from libs.utils import heteroscedastic_loss
+from opps.libs.models import MyModel
+from opps.libs.io_utils import MyDataset, get_dataset, gnn_collate_fn
+from opps.libs.utils import (
+    str2bool, set_seed, set_device, evaluate_regression, heteroscedastic_loss)
 
 
 def main(args):
@@ -31,7 +21,7 @@ def main(args):
 
 	# Prepare datasets and dataloaders
 	train_set, valid_set, test_set = get_dataset(csv_path=args.csv_path)
-	
+
 	train_ds = MyDataset(splitted_set=train_set)
 	valid_ds = MyDataset(splitted_set=valid_set)
 	test_ds = MyDataset(splitted_set=test_set)
@@ -70,7 +60,7 @@ def main(args):
 	)
 	model = model.to(device)
 	optimizer = torch.optim.AdamW(
-		model.parameters(), 
+		model.parameters(),
 		lr=args.lr,
 		weight_decay=args.weight_decay,
 	)
@@ -137,14 +127,14 @@ def main(args):
 					graph = graph.to(device)
 					y = y.to(device)
 					y = y.float()
-	
+
 					pred, alpha = model(graph, training=True)
 					pred = pred.unsqueeze(-1)
 					tmp_list.append(pred)
 
 				tmp_list = torch.cat(tmp_list, dim=-1)
 				tmp_list = torch.mean(tmp_list, dim=-1)
-				
+
 				y_list.append(y)
 				pred_list.append(tmp_list[:,0])
 
@@ -169,21 +159,21 @@ def main(args):
 			pred_list = []
 			for i, batch in enumerate(test_loader):
 				st = time.time()
-	
+
 				tmp_list = []
 				for _ in range(args.num_sampling):
 					graph, y = batch[0], batch[1]
 					graph = graph.to(device)
 					y = y.to(device)
 					y = y.float()
-	
+
 					pred, alpha = model(graph, training=True)
 					pred = pred.unsqueeze(-1)
 					tmp_list.append(pred)
 
 				tmp_list = torch.cat(tmp_list, dim=-1)
 				tmp_list = torch.mean(tmp_list, dim=-1)
-				
+
 				y_list.append(y)
 				pred_list.append(tmp_list[:,0])
 
@@ -205,7 +195,7 @@ def main(args):
 			   "RMSE:", round(train_metrics[1], 3), "\t", round(valid_metrics[1], 3), "\t", round(test_metrics[1], 3), \
 			   "R2:", round(train_metrics[2], 3), "\t", round(valid_metrics[2], 3), "\t", round(test_metrics[2], 3))
 
-		save_path = './save/' 
+		save_path = './save/'
 		save_path += str(args.job_title) + '_'
 		save_path += str(args.model_type) + '_'
 		save_path += str(args.hidden_dim) + '_'
@@ -219,19 +209,19 @@ def main(args):
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--job_title', type=str, default='MCDO', 
+	parser.add_argument('--job_title', type=str, default='MCDO',
 						help='Job title of this execution')
-	parser.add_argument('--use_gpu', type=str2bool, default=True, 
+	parser.add_argument('--use_gpu', type=str2bool, default=True,
 						help='whether to use GPU device')
-	parser.add_argument('--gpu_idx', type=str, default='1', 
+	parser.add_argument('--gpu_idx', type=str, default='1',
 						help='index of gpu to use')
 	parser.add_argument('--seed', type=int, default=999,
 						help='Seed for all stochastic components')
 
-	parser.add_argument('--csv_path', type=str, default='/home/seongok/works/seoklab/gnn_docking/data/chembldataset.csv', 
+	parser.add_argument('--csv_path', type=str, default='/home/seongok/works/seoklab/gnn_docking/data/chembldataset.csv',
 						help='What dataset to use for model development')
 
-	parser.add_argument('--model_type', type=str, default='gcn', 
+	parser.add_argument('--model_type', type=str, default='gcn',
 						help='Type of GNN model, Options: gcn, gin, gin_e, gat, ggnn')
 	parser.add_argument('--num_layers', type=int, default=4,
 						help='Number of GIN layers for ligand featurization')
@@ -239,14 +229,14 @@ if __name__ == '__main__':
 						help='Dimension of hidden features')
 	parser.add_argument('--out_dim', type=int, default=2,
 						help='Dimension of final outputs')
-	parser.add_argument('--readout', type=str, default='pma', 
+	parser.add_argument('--readout', type=str, default='pma',
 						help='Readout method, Options: sum, mean, ...')
-	parser.add_argument('--norm_features', type=str2bool, default=False, 
+	parser.add_argument('--norm_features', type=str2bool, default=False,
 						help='whether to normalize the node features at the PMA step')
-	parser.add_argument('--dropout_prob', type=float, default=0.2, 
+	parser.add_argument('--dropout_prob', type=float, default=0.2,
 						help='Probability of dropout on node features')
 
-	parser.add_argument('--optimizer', type=str, default='adam', 
+	parser.add_argument('--optimizer', type=str, default='adam',
 						help='Options: adam, sgd, ...')
 	parser.add_argument('--num_epoches', type=int, default=150,
 						help='Number of training epoches')
@@ -254,15 +244,15 @@ if __name__ == '__main__':
 						help='Number of workers to run dataloaders')
 	parser.add_argument('--batch_size', type=int, default=64,
 						help='Number of samples in a single batch')
-	parser.add_argument('--lr', type=float, default=1e-3, 
+	parser.add_argument('--lr', type=float, default=1e-3,
 						help='Initial learning rate')
-	parser.add_argument('--weight_decay', type=float, default=1e-6, 
+	parser.add_argument('--weight_decay', type=float, default=1e-6,
 						help='Weight decay coefficient')
 
 	parser.add_argument('--num_sampling', type=int, default=10,
 						help='Number of MC-Sampling of output logits')
 
-	parser.add_argument('--save_model', type=str2bool, default=True, 
+	parser.add_argument('--save_model', type=str2bool, default=True,
 						help='whether to save model')
 
 	args = parser.parse_args()

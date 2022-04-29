@@ -1,22 +1,15 @@
 import sys
+
 import numpy as np
-import random
-from openbabel import openbabel
 from openbabel import pybel
-from rdkit import Chem
-from rdkit import DataStructs
-from rdkit.Chem import AllChem
-from rdkit.Chem import Draw
-from rdkit.Chem import Recap,BRICS
-from rdkit.Chem import rdmolfiles
-from rdkit.Chem.Fingerprints import FingerprintMols
-from fragment_merge import Molecule
-from libfilter import check_catalog_filters, check_lipinski_filter
-#sys.path.append('/home/hakjean/openbabel/openbabel-2.3.1/scripts/python')
-#from pybel import *
+
+from .fragment_merge import Molecule
+from .libfilter import check_catalog_filters, check_lipinski_filter
 
 fn_database_mol = '/home/neclasic/Screen/DB_Compound/Commercial/Asinex/All/2020-01-BioDesign.sdf'
 #fn_database_mol = '/home/neclasic/Screen/DB_Compound/ZINC/druglike_90/druglike_90.mol2'
+
+
 def read_database_mol(fn_database_mol):
     mol_s=list(pybel.readfile("sdf", fn_database_mol))
     mol_fp_s = []
@@ -25,6 +18,7 @@ def read_database_mol(fn_database_mol):
         mol = pybel.readstring("smi",str(mol))
         mol_fp_s.append(mol.calcfp(fptype="fp4"))
     return mol_s, mol_fp_s
+
 
 def pick_similar_compound(seed_mol, database_mol_s, database_fp_s, filters=None, filter_lipinski=False):
     print(seed_mol)
@@ -46,7 +40,7 @@ def pick_similar_compound(seed_mol, database_mol_s, database_fp_s, filters=None,
     for idx in similar_indices:
         #try:
         smiles = database_mol_s[idx].write()
-        new_mol = Molecule(smiles=smiles, build_3d=True)
+        new_mol = Molecule.from_smiles(smiles, build_3d=True)
         if not filters == None:
             check_catalog = check_catalog_filters(new_mol.RDKmol, filters)
             if check_catalog:
@@ -81,7 +75,7 @@ def main():
         tani_s.append(tani_coef)
     t2 = time.time()
     print(t2-t1)
-    
+
     tani_s = np.array(tani_s)
     t1 = time.time()
     similarity_indices = np.argsort(-tani_s)
@@ -94,7 +88,7 @@ def main():
     i_mol = 0
     for idx in similarity_indices:
         smiles = mol_s[idx].write()
-        new_mol = Molecule(smiles=smiles, build_3d=True)
+        new_mol = Molecule.from_smiles(smiles, build_3d=True)
         #if not filters == None:
         #    check_catalog = check_catalog_filters(new_mol.RDKmol, filters)
         #    if check_catalog:

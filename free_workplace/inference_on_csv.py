@@ -1,23 +1,14 @@
 import time
 import argparse
 
-from functools import partial
-
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from libs.io_inference import get_dataset
-from libs.io_inference import MyDataset
-from libs.io_inference import my_collate_fn
-
-from libs.models import MyModel
-
-from libs.utils import str2bool
-from libs.utils import set_seed
-from libs.utils import set_device
+from opps.libs.models import MyModel
+from opps.libs.io_inference import MyDataset, get_dataset, my_collate_fn
+from opps.libs.utils import str2bool, set_seed, set_device
 
 
 def main(args):
@@ -66,7 +57,7 @@ def main(args):
 		smi_list = []
 		for i, batch in enumerate(test_loader):
 			st = time.time()
-	
+
 			tmp_list = []
 			graph_tmp = batch[0]
 			smi = batch[1]
@@ -80,7 +71,7 @@ def main(args):
 			tmp_list = torch.cat(tmp_list, dim=-1)
 			mean_list = torch.mean(tmp_list, dim=-1)
 			std_list = torch.std(tmp_list, dim=-1)
-			
+
 			pred_list.append(mean_list[:,0])
 			ale_unc_list.append(torch.exp(mean_list[:,1]))
 			epi_unc_list.append(std_list[:,0])
@@ -107,25 +98,25 @@ def main(args):
 
 	df.to_csv('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/'+args.title+'_inference.csv', index=False)
 
-	
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--title', type=str, default='test', 
+	parser.add_argument('--title', type=str, default='test',
 						help='Title of this project')
-	parser.add_argument('--csv_path', type=str, required=True, 
+	parser.add_argument('--csv_path', type=str, required=True,
 						help='Path of the csv file that provides the list of SMILES')
-	parser.add_argument('--smi_column', type=str, default='SMILES', 
+	parser.add_argument('--smi_column', type=str, default='SMILES',
 						help='Name of the column that provides the list of SMILES')
 
-	parser.add_argument('--use_gpu', type=str2bool, default=True, 
+	parser.add_argument('--use_gpu', type=str2bool, default=True,
 						help='whether to use GPU device')
-	parser.add_argument('--gpu_idx', type=str, default='1', 
+	parser.add_argument('--gpu_idx', type=str, default='1',
 						help='index of gpu to use')
 	parser.add_argument('--seed', type=int, default=999,
 						help='Seed for all stochastic components')
 
-	parser.add_argument('--model_type', type=str, default='gcn', 
+	parser.add_argument('--model_type', type=str, default='gcn',
 						help='Type of GNN model, Options: gcn, gin, gin_e, gat, ggnn')
 	parser.add_argument('--num_layers', type=int, default=4,
 						help='Number of GIN layers for ligand featurization')
@@ -133,9 +124,9 @@ if __name__ == '__main__':
 						help='Dimension of hidden features')
 	parser.add_argument('--out_dim', type=int, default=2,
 						help='Dimension of final outputs')
-	parser.add_argument('--readout', type=str, default='pma', 
+	parser.add_argument('--readout', type=str, default='pma',
 						help='Readout method, Options: sum, mean, ...')
-	parser.add_argument('--dropout_prob', type=float, default=0.2, 
+	parser.add_argument('--dropout_prob', type=float, default=0.2,
 						help='Probability of dropout on node features')
 
 	parser.add_argument('--num_workers', type=int, default=8,

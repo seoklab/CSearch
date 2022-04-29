@@ -1,50 +1,42 @@
-import numpy as np
+import os
 import glob
-from rdkit import Chem
-from rdkit import DataStructs
 import random
-import tempfile
-import sys
-sys.path.insert(0, '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps')
-from fragment_merge import *
+from typing import List
+
+import Galaxy
+import numpy as np
+from scipy.spatial import distance as D
+from rdkit import Chem
+
 from libfilter import prepare_catalog_filters
 from libfilter import check_lipinski_filter
-#from in_silico_reaction import *
-#from simliarity_search import *
-#from energy_calculation import *
-from in_silico_reaction import Reaction, get_dict_from_json_file, get_compl_mol_dict
-from similarity_search import read_database_mol, pick_similar_compound
-from energy_calculation_tab import energy_calc
-
-sys.path.insert(0, '/home/hakjean/GalaxyPipe/lib')#%os.environ['GALAXY_PIPE_HOME'])
-#import libGalaxy
-import Galaxy
-import multiprocessing as mp
-
-sys.path.append('/home/hakjean/galaxy2/openbabel/openbabel-2.3.1/scripts/python')
-from pybel import readfile
+from opps.fragment_merge import *
+from opps.in_silico_reaction import (
+    Reaction, get_dict_from_json_file, get_compl_mol_dict)
+from opps.similarity_search import read_database_mol
+from opps.energy_calculation_tab import energy_calc
 
 
+N_PROC_DOCK = 1
 
-N_PROC_DOCK=1
 
 class CSA(object):
     def __init__(self, filter_lipinski=False, use_ML=True, ref_lig=None):
         #self.n_bank=192
         #self.n_bank_add=50
-        
+
         #self.n_seed = 48
-        self.n_bank=48
-        self.n_bank_add=50
-        self.n_seed = 24 
+        self.n_bank = 48
+        self.n_bank_add = 50
+        self.n_seed = 24
         #'dcut1': 2.0, # initial Dcut is the initial average diff / dcut1
         #'dcut2': 5.0, # minimum Dcut is the initial average diff / dcut2
-        self.seed_mask = []# any index in the list is not selected as a seed
-        self.n_csa_iter= 1
-        self.n_seed_cycle= 1
+        self.seed_mask = []  # any index in the list is not selected as a seed
+        self.n_csa_iter = 1
+        self.n_seed_cycle = 1
         self.max_opt_cycle = 10000
         self.dist_mat = np.zeros((self.n_bank, self.n_bank))
-        self.use_ML=use_ML
+        self.use_ML = use_ML
 
         self.seed_cycle = 1
 
@@ -56,7 +48,7 @@ class CSA(object):
         self.filter_lipinski=filter_lipinski
         #if filter_PAINS.HasMatch(mol):
         #    continue
-        
+
         #prep similarity search
         self.database_mol_s, self.database_mol_fp_s = read_database_mol(fn_database_mol)
 
@@ -68,8 +60,8 @@ class CSA(object):
         #    [model.eval() for model in model_s]
         #self.model_s = model_s
 
-        self.ref_lig=ref_lig
-        
+        self.ref_lig = ref_lig
+
     def initialize_csa(self, job, init_bank_smiles_fn, n_proc=None):
         #self.prot_fn = prot_fn
         #self.cntr_R = cntr_R
@@ -79,22 +71,17 @@ class CSA(object):
         self.n_proc = n_proc
 
         #initialize in-silico reactions
-        fn_func_json = '/home/hakjean/galaxy2/developments/MolGen/db_chembl/All_Rxns_functional_groups.json'
-        self.functional_group_dict = get_dict_from_json_file(fn_func_json)
         fn_rxn_lib = '/home/hakjean/galaxy2/developments/MolGen/db_chembl/All_Rxns_rxn_library.json'
         reaction_dict = get_dict_from_json_file(fn_rxn_lib)
         fn_compl_mol_s = glob.glob('/home/hakjean/galaxy2/developments/MolGen/db_chembl/complementary_mol_dir/*.smi')
         self.compl_mol_dict = get_compl_mol_dict(fn_compl_mol_s)
-        self.reaction_s = []
+        self.reaction_s: List[Reaction] = []
         for reaction_name in reaction_dict:
             self.reaction_s.append(Reaction(reaction_dict[reaction_name]))
 
         #initial bank
         self.read_initial_bank(init_bank_smiles_fn)
-        self.update_distance()
         self.setup_initial_Dcut()
-        self.setup_distance(self.bank_pool)
-
 
     def run(self):
         self.write_bank(0)
@@ -123,75 +110,37 @@ class CSA(object):
                 if len(self.seed_mask) ==0:
                     return
 
-
-
     def read_initial_bank(self, smiles_fn):
-        i_cycle = 0
-        self.bank_pool = []
-        self.str_bank_pool = []
-        #Read Molecule
-        self.energy_bank_pool = []
-        i_mol = 0
-        
+        self.bank_pool: List[Molecule] = []
+
         with open(smiles_fn, 'r') as f_n:
-            for line in f_n:
+            for i_mol, line in enumerate(f_n):
                 smile_str = line.split()
                 smiles_str = smile_str[0]
                 smiles = smiles_str.replace('[NH3]', '[NH3+]')
                 smiles = smiles.replace('[NH2]', '[NH2+]')
                 smiles = smiles.replace('[NH]', '[NH+]')
-                mol = Molecule(smiles=smiles, build_3d=False)
-                mol.source = 'INITIAL'
-                i_mol += 1
-                if mol.RDKmol == None:
-                    print('error processing %dth molecule'%i_mol)
+
+                mol = Molecule.from_smiles(smiles, source="INITIAL")
+                if mol.RDKmol is None:
+                    print(f'error processing {i_mol}th molecule')
                     continue
-
                 mol.decompose()
-
-        #for mol_pybel in pybel.readfile("mol2", mol2_fn.relpath()):
-        #    mol_pybel.removeh()
-        #    smiles = mol_pybel.write()
-        #    smiles = smiles.replace('[NH3]', '[NH3+]')
-        #    smiles = smiles.replace('[NH2]', '[NH2+]')
-        #    smiles = smiles.replace('[NH]', '[NH+]')
-        #    mol = Molecule(smiles=smiles, build_3d=False)
-            #print(smiles)
-        #    mol.source = 'INITIAL'
-        #    i_mol += 1
-        #    if mol.RDKmol == None:
-        #        print('error processing %dth molecule'%i_mol)
-        #        continue
-            #for brics
-        #    mol.decompose()
-        
                 self.bank_pool.append(mol)
-
                 if len(self.bank_pool) == self.n_bank:
                     break
+
         self.update_functional_groups()
+        self.energy_bank_pool = energy_calc(
+            [mol.smiles.replace("~", "") for mol in self.bank_pool], "csa")
 
-        for i_mol in self.bank_pool:
-            #seed_mol = self.bank_pool[i_seed]
-            #print('seed')
-            #print()
-            seed_mol = str(i_mol)
-            if seed_mol.find('~') != -1:
-
-                seed_mol.replace('~','')
-            self.str_bank_pool.append(seed_mol)
-            #energy_s = energy_calc(seed_mol,"csa")
-           # self.energy_bank_pool.append(energy_s)
-        self.energy_bank_pool = energy_calc(self.str_bank_pool,"csa")
         print("initial bank energy:")
         print(self.energy_bank_pool)
         self.job.mkdir('cycle_0')
         smiles_block_s = []
         with open(smiles_fn, 'r') as fp:
-            smiles_lines = fp.readlines()
-        
-        for line in smiles_lines:
-            smiles_block_s.append(line)
+            for line in fp:
+                smiles_block_s.append(line)
         #mol2_block_s = []
         #with open(mol2_fn.relpath(), 'r') as fp:
         #    mol2_lines = fp.readlines()
@@ -213,36 +162,29 @@ class CSA(object):
         #store initial bank
         self.init_bank = self.bank_pool
 
-    def update_distance(self):
-        for i in range(self.n_bank):
-            i_mol = self.bank_pool[i]
-            for j in range(i, self.n_bank):
-                j_mol = self.bank_pool[j]
-                dist = calc_tanimoto_distance(i_mol, j_mol)
-                self.dist_mat[i,j] = dist
-                self.dist_mat[j,i] = dist
-    def setup_distance(self, new_smiles_s):
-        nst = float(self.n_opt_to_D_min)/len(new_smiles_s)
+    @staticmethod
+    def _tanimoto_dist(m, n):
+        return calc_tanimoto_distance(m[0], n[0])
 
-        n_smiles = len(new_smiles_s)
-        dist_mat = np.zeros((n_smiles,n_smiles))
-        for i in range(n_smiles):
-            i_mol = new_smiles_s[i]
-            for j in range(i, n_smiles):
-                j_mol = new_smiles_s[j]
-                dist = calc_tanimoto_distance(i_mol, j_mol)
-                dist_mat[i,j] = dist
-                dist_mat[j,i] = dist
-        D_avg_new_conf = np.average(dist_mat)
-        self.D_cut = D_avg_new_conf/2.0 #factor_init_D_cut 
-        self.D_min = D_avg_new_conf/5.0 #factor_min_D_cut
-        self.xctdif = (self.D_cut/self.D_min)**(-1.0/nst)
+    @classmethod
+    def _cdist_mols(cls, mols: List[Molecule]):
+        mols_arr = np.array(mols, dtype=object)[:, np.newaxis]
+        return D.cdist(mols_arr, mols_arr, metric=cls._tanimoto_dist)
+
+    def update_distance(self):
+        self.dist_mat = self._cdist_mols(self.bank_pool)
 
     def setup_initial_Dcut(self):
         self.update_distance()
         self.Davg = np.average(self.dist_mat)
-        self.Dcut = self.Davg/2.0
-        self.Dcut_min = self.Davg/5.0
+
+        self.Dcut = self.Davg / 2.0  # factor_init_D_cut
+        self.Dcut_min = self.Davg / 5.0 # factor_min_D_cut
+
+        self.D_min = self.Davg / 5.0
+
+        nst = float(self.n_opt_to_D_min) / len(self.bank_pool)
+        self.xctdif = (self.D_cut / self.D_min)**(-1.0 / nst)
 
     def select_seeds(self):
         print(f"seed_mask : {self.seed_mask}")
@@ -270,50 +212,52 @@ class CSA(object):
 
     def update_functional_groups(self):
         for mol in self.bank_pool:
-            mol.determine_functional_groups(self.functional_group_dict)
+            mol.determine_functional_groups()
 
-    def make_new_confs(self, i_cycle):
+    def make_new_confs(self, i_cycle, max_gen: int = 48):
         seed_selected = self.select_seeds()
         #print(seed_selected)
         #print(str(seed_selected))
-        new_mol_s = []
-        new_energy_s = []
-        cal_mol_s = []
+        new_mol_s: List[Molecule] = []
         # generate molecules
         max_select_brics = 5
         # crossover, BRICS
-        
+
         for i_seed in seed_selected:
             seed_mol = self.bank_pool[i_seed]
             #seed_mol = self.init_bank[0]
             partner_mol = random.choice(self.init_bank)
 
-            gen_RDKmol_s = gen_crossover(seed_mol, partner_mol, filters=self.catalog_filters,\
-                    filter_lipinski=self.filter_lipinski)
+            gen_RDKmol_s = gen_crossover(seed_mol, partner_mol,
+                                         filters=self.catalog_filters,
+                                         filter_lipinski=self.filter_lipinski)
+
             if len(gen_RDKmol_s) > max_select_brics:
                 gen_RDKmol_s = random.sample(gen_RDKmol_s, max_select_brics)
+
             for gen_RDKmol in gen_RDKmol_s:
                 try:
-                    new_mol = Molecule(RDKmol=gen_RDKmol, build_3d=True)
-                    new_mol.source='BRICS'
-                    if len(new_mol.mol2_block) == 0:
-                        continue
-                    if len(new_mol_s) == 48:
-                        continue
+                    new_mol = Molecule.from_rdkit(
+                        gen_RDKmol, build_3d=True, source='BRICS')
                     new_mol_s.append(new_mol)
-                    cal_mol_s.append(str(new_mol))
-                except:
+                    if len(new_mol_s) >= max_gen:
+                        break
+                except Exception:
                     continue
+
+            if len(new_mol_s) >= max_gen:
+                break
 
         max_select_reaction = 3
         for i_seed in seed_selected:
             seed_mol = self.bank_pool[i_seed]
             random.shuffle(self.reaction_s)
-            products_all = []
-            
-            finish_reaction =False
+
+            products_all: List[Molecule] = []
+            finish_reaction = False
+
             for reaction in self.reaction_s:
-                groups_found, groups_missing = reaction.check_reaction_components(seed_mol)
+                groups_found, _ = reaction.check_reaction_components(seed_mol)
                 if len(groups_found) == 0:
                     continue
                 group_picked = random.choice(groups_found)
@@ -325,21 +269,24 @@ class CSA(object):
                         continue
                     compl_mol = random.choice(self.compl_mol_dict[group])
                     reactants[group] = compl_mol
-                products = reaction.run_reaction(reactants, filters=self.catalog_filters,\
-                        filter_lipinski=self.filter_lipinski)
+
+                products = reaction.run_reaction(
+                    reactants,
+                    filters=self.catalog_filters,
+                    filter_lipinski=self.filter_lipinski,
+                    build_3d=True)
                 random.shuffle(products)
+
                 for product in products:
                     products_all.append(product)
                     if len(products_all) >= max_select_reaction:
                         finish_reaction =True
                         break
+
                 if finish_reaction:
                     break
-            for product in products_all:
-                product.build_mol2_3D()
-                product.source='REACTION'
-                new_mol_s.append(product)
-                cal_mol_s.append(str(product))
+
+            new_mol_s += products_all
         ## similarity search
         #for i_seed in seed_selected:
         #    seed_mol = self.bank_pool[i_seed]
@@ -348,7 +295,7 @@ class CSA(object):
         #    for new_mol in gen_mol_s:
         #        new_mol.source='DB'
         #    new_mol_s += gen_mol_s
-        
+
 
         # calc energy
        # for i_seed in new_mol_s:
@@ -357,31 +304,35 @@ class CSA(object):
             #print()
         #    seed_mol = str(i_seed)
          #   energy_s = energy_calc(seed_mol,"csa")
-            #print('New_mol :') 
+            #print('New_mol :')
             #print(new_mol_s)
-            
+
           #  new_energy_s.append(energy_s)
-            new_energy_s = energy_calc(cal_mol_s, "csa")
-        #new_energy_s = energy_calc(new_mol_s, multi=True)        
+
+        new_energy_s = energy_calc(
+            [mol.smiles for mol in new_mol_s], "csa")
+        #new_energy_s = energy_calc(new_mol_s, multi=True)
         #print(new_energy_s[0])
         return new_mol_s, new_energy_s
 
-    def update_bank(self, new_mol_s, new_energy_s):
-        i_Emax_bank_u = np.argsort(self.energy_bank_pool)[-1]
+    def update_bank(
+            self, new_mol_s: List[Molecule], new_energy_s: List[float]):
+        for i, (i_mol, i_energy) in enumerate(zip(new_mol_s, new_energy_s)):
+            i_Emax_bank_u = np.argmax(self.energy_bank_pool)
 
-        for i, i_mol in enumerate(new_mol_s):
-            i_energy = new_energy_s[i]
             if i_energy >= self.energy_bank_pool[i_Emax_bank_u]:
                 continue
+
             #i_mol = new_mol_s[i_new]
             # check lipinski filter
-            smi_mol = Chem.MolFromSmiles(str(i_mol))
+            smi_mol = Chem.MolFromSmiles(i_mol.smiles)
             if check_lipinski_filter(smi_mol):
                 continue
             # check closest bank member
-            
-            dist_s = [calc_tanimoto_distance(bank_mol, i_mol) for bank_mol in self.bank_pool]
-            min_idx = np.argsort(dist_s)[0]
+
+            dist_s = [calc_tanimoto_distance(bank_mol, i_mol)
+                      for bank_mol in self.bank_pool]
+            min_idx = np.argmin(dist_s)
             min_dist = dist_s[min_idx]
             i_mol.RDKmol.UpdatePropertyCache()
             Chem.GetSymmSSSR(i_mol.RDKmol)
@@ -390,8 +341,8 @@ class CSA(object):
             #replace current bank
             if (min_dist < self.Dcut):
                 if i_energy < new_energy_s[min_idx]:
-                    print('%d %.3f was replaced to %d %.3f in same group'%(min_idx,\
-                            new_energy_s[min_idx], i, i_energy))
+                    print('%d %.3f was replaced to %d %.3f in same group'
+                          % (min_idx, new_energy_s[min_idx], i, i_energy))
 
                     print(f"before {self.bank_pool[min_idx]} after {i_mol}")
                     self.bank_pool[min_idx] = i_mol
@@ -400,56 +351,56 @@ class CSA(object):
                     if not min_idx in self.seed_mask:
                         self.seed_mask.append(min_idx)
             else:
-                print('%d %.3f was replaced to %d %.3f in new group'%(i_Emax_bank_u,\
-                        new_energy_s[i_Emax_bank_u], i, i_energy))
-                
+                print(
+                    '%d %.3f was replaced to %d %.3f in new group'
+                    %(i_Emax_bank_u, new_energy_s[i_Emax_bank_u], i, i_energy))
+
                 print(f"before {self.bank_pool[i_Emax_bank_u]} after {i_mol}")
                 self.bank_pool[i_Emax_bank_u] = i_mol
                 self.energy_bank_pool[i_Emax_bank_u] = i_energy
                 #new_energy_s[i_Emax_bank_u] = i_energy
                 if not i_Emax_bank_u in self.seed_mask:
-                    self.seed_mask.append(i_Emax_bank_u)    
-            i_Emax_bank_u = np.argsort(self.energy_bank_pool)[-1]
-            
+                    self.seed_mask.append(i_Emax_bank_u)
+
     def print_log(self):
         for i in range(self.n_bank):
             print('Bank %d:success'%(i+1))
+
     def write_bank(self, i_cycle):
         with open('single/csa_%d.log'%i_cycle, 'wt') as fp:
             for i_mol, mol in enumerate(self.bank_pool):
                 print(i_mol)
                 print(mol)
-                mol_energy = energy_calc(str(mol),'single')
-                mol_energy = str(float(mol_energy)*100)
-                fp.write('%d %s\n'%(i_mol+1, mol_energy))
-                fp.write('%s\n' % mol)
+                mol_energy = energy_calc(mol.smiles, 'single')
+                fp.write(f'{i_mol+1} {float(mol_energy) * 100}\n')
+                fp.write(f'{mol}\n')
+
 
 if __name__=='__main__':
-        import sys
-        #prot_fn = Galaxy.core.FilePath(sys.argv[1])
+    import sys
+    #prot_fn = Galaxy.core.FilePath(sys.argv[1])
 #        smiles_fn = Galaxy.core.FilePath(sys.argv[2])
-        smiles_fn = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/data/initial_bank_02.smi'
-        smiles_fn = os.path.abspath(smiles_fn)
-        #smiles_fn = os.path.relpat
-        #opt_fn =  sys.argv[3]
+    smiles_fn = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/data/initial_bank_02.smi'
+    smiles_fn = os.path.abspath(smiles_fn)
+    #smiles_fn = os.path.relpat
+    #opt_fn =  sys.argv[3]
 
-        #cntr = [0.0,0.0,0.0]
-        #with open(opt_fn, 'r') as fp:
-        #    lines = fp.readlines()
+    #cntr = [0.0,0.0,0.0]
+    #with open(opt_fn, 'r') as fp:
+    #    lines = fp.readlines()
 
-        #for line in lines:
-        #    linesp=line.split('=')
-        #    if linesp[0] == 'X':
-        #        cntr[0] = float(linesp[1])
-        #    if linesp[0] == 'Y':
-        #        cntr[1] = float(linesp[1])
-        #    if linesp[0] == 'Z':
-        #        cntr[2] = float(linesp[1])
+    #for line in lines:
+    #    linesp=line.split('=')
+    #    if linesp[0] == 'X':
+    #        cntr[0] = float(linesp[1])
+    #    if linesp[0] == 'Y':
+    #        cntr[1] = float(linesp[1])
+    #    if linesp[0] == 'Z':
+    #        cntr[2] = float(linesp[1])
 
 
-        job = Galaxy.initialize(title='Test_OptMol', mkdir=False)
-        #cntr  = tuple(cntr)
-        csa = CSA()
-        csa.initialize_csa(job, smiles_fn)
-        csa.run()
-
+    job = Galaxy.initialize(title='Test_OptMol', mkdir=False)
+    #cntr  = tuple(cntr)
+    csa = CSA()
+    csa.initialize_csa(job, smiles_fn)
+    csa.run()

@@ -1,12 +1,11 @@
 import glob
-import os
-from rdkit.Chem import AllChem
-from rdkit import Chem
 import random
-import sys
-sys.path.insert(0, '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps')
-from libfilter import check_catalog_filters, check_lipinski_filter
-from fragment_merge import Molecule, Molecule_Pool#### move to core
+
+from rdkit import Chem
+from rdkit.Chem import AllChem
+
+from .libfilter import check_catalog_filters, check_lipinski_filter
+from .fragment_merge import Molecule, Molecule_Pool
 
 global i_reaction
 i_reaction = 0
@@ -20,9 +19,12 @@ class Reaction(object):
         self.reaction_string = reaction_dict["reaction_string"]
         self.RDKrxn = AllChem.ReactionFromSmarts(self.reaction_string)
         self.RDKrxn.Initialize()
+
     def __repr__(self):
         return self.reaction_name
-    def run_reaction(self, reactants, filters=None, filter_lipinski=False):
+
+    def run_reaction(self, reactants, filters=None,
+                     filter_lipinski=False, build_3d=False):
         global i_reaction
         i_reaction += 1
         RDK_reactants = []
@@ -34,6 +36,7 @@ class Reaction(object):
 
             i+=1
             #react.draw(output_fn='test_reaction/reagent_%s_%d.png'%(self.reaction_name,i))
+
         RDK_reactants = tuple(RDK_reactants)
         products = self.RDKrxn.RunReactants(RDK_reactants)
         products = [product[0] for product in products]
@@ -41,12 +44,14 @@ class Reaction(object):
         for RDKmol in products:
             #print(Chem.MolToSmiles(RDKmol), 'product')
             #try:
-            smiles =Chem.MolToSmiles(RDKmol)
+            smiles = Chem.MolToSmiles(RDKmol)
             #print(smiles)
             try:
-                product = Molecule(smiles=smiles)
-                if not filters == None:
-                    check_catalog = check_catalog_filters(product.RDKmol, filters)
+                product = Molecule.from_smiles(
+                    smiles, build_3d=build_3d, source="REACTION")
+                if filters is not None:
+                    check_catalog = check_catalog_filters(
+                        product.RDKmol, filters)
                     if check_catalog:
                         continue
                 if filter_lipinski:
@@ -55,19 +60,19 @@ class Reaction(object):
                         continue
             #product = Molecule(RDKmol=RDKmol)
                 new_mol_s.append(product)
-            except:
+            except BaseException:
                 continue
         i = 0
         #for product in products:
-            #i+=1
-            #product.draw(output_fn='test_reaction/product_%s_%d.png'%(self.reaction_name,i))
+        #i+=1
+        # product.draw(output_fn='test_reaction/product_%s_%d.png'%(self.reaction_name,i))
 
         return new_mol_s
 
     def check_reaction_components(self, mol):
         groups_missing = []
         groups_found = []
-        
+
         for functional_group in self.functional_groups:
             if mol.HasFunctionalGroup[functional_group]:
                 groups_found.append(functional_group)
@@ -91,7 +96,7 @@ def get_compl_mol_dict(fn_compl_mol_s):
         group_name = fn_compl_mol.split('/')[-1].split('.')[0]
         with open(fn_compl_mol, 'r') as fp:
             smi_s = [line.split()[0] for line in fp.readlines()]
-        compl_mol_s = [Molecule(smiles=smiles) for smiles in smi_s]
+        compl_mol_s = [Molecule.from_smiles(smiles) for smiles in smi_s]
         compl_mol_dict[group_name] = compl_mol_s
     return compl_mol_dict
 
@@ -106,7 +111,7 @@ if __name__=='__main__':
     compl_mol_dict = get_compl_mol_dict(fn_compl_mol_s)
 
     mol_pool = Molecule_Pool('test.mol2')
-    mol_pool.determine_functional_groups(functional_group_dict)
+    mol_pool.determine_functional_groups()
     test_mol = mol_pool[0]
 
     reaction_s = []

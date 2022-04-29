@@ -1,32 +1,16 @@
+import os
 import time
-import os,sys
 import argparse
 import numpy as np
-import csv
-import pandas as pd
+
 import torch
-import torch.nn as nn
-from functools import partial
 from torch.utils.data import DataLoader
-from libs.io_inference import get_dataset
-from libs.io_inference import MyDataset
-from libs.io_inference import my_collate_fn
-from libs.models import MyModel
-from libs.utils import str2bool
-from libs.utils import set_seed
-from libs.utils import set_device
-from rdkit import Chem
-from rdkit import rdBase
-from rdkit import DataStructs
-from rdkit.Chem.Fingerprints import FingerprintMols
-from rdkit.Chem import Descriptors
 from rdkit.Chem.Descriptors import *
-from rdkit.Chem import AllChem
-from rdkit.Chem import rdchem
-from rdkit.Chem import rdmolops
 from rdkit.Chem.rdMolDescriptors import *
-from mordred import Calculator, descriptors
-import joblib
+
+from .libs.models import MyModel
+from .libs.io_inference import MyDataset, my_collate_fn
+from .libs.utils import set_seed, set_device
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--i', default='smi')
@@ -34,11 +18,6 @@ parser.add_argument('--i_file', default='/home/hakjean/test/test2/chembldata/che
 args = parser.parse_args()
 input_type = args.i
 input_file = args.i_file
-
-#global input_type
-#input_type = 'smi'
-
-
 
 
 def input_check(input_files):
@@ -59,7 +38,7 @@ def input_check(input_files):
     return smiles
 
 
-def energy_calc(input_smiles,input_file):
+def energy_calc(input_smiles, input_file):
     if input_file == 'csa':
         # Set random seeds and device
         set_seed(seed=621)
@@ -100,14 +79,14 @@ def energy_calc(input_smiles,input_file):
         ckpt = torch.load(save_path, map_location=device)
         model.load_state_dict(ckpt['model_state_dict'])
         model.eval()
-        #ff = open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')    
-        
+        #ff = open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')
+
         with torch.no_grad():
             pred_list = []
             smi_list = []
             for i, batch in enumerate(test_loader):
                 st = time.time()
-	
+
                 tmp_list = []
                 graph_tmp = batch[0]
                 smi = batch[1]
@@ -120,7 +99,7 @@ def energy_calc(input_smiles,input_file):
 
                 tmp_list = torch.cat(tmp_list, dim=-1)
                 mean_list = torch.mean(tmp_list, dim=-1)
-						
+
                 pred_list.append(mean_list[:,0])
 
                 smi_list.extend(smi)
@@ -129,19 +108,19 @@ def energy_calc(input_smiles,input_file):
 
         pred_list = torch.cat(pred_list, dim=0).detach().cpu().numpy()
 
-	
+
 
         pred_list = list(np.around(pred_list, 3))
         galigandE = pred_list
 	    #smi_list
 	    #pred_list
-	
 
 
 
 
 
-        return galigandE 
+
+        return galigandE
     if input_file == "single":
         # Set random seeds and device
         set_seed(seed=621)
@@ -180,14 +159,14 @@ def energy_calc(input_smiles,input_file):
         ckpt = torch.load(save_path, map_location=device)
         model.load_state_dict(ckpt['model_state_dict'])
         model.eval()
-        #ff = open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')    
-        
+        #ff = open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')
+
         with torch.no_grad():
             pred_list = []
             smi_list = []
             for i, batch in enumerate(test_loader):
                 st = time.time()
-	
+
                 tmp_list = []
                 graph_tmp = batch[0]
                 smi = batch[1]
@@ -200,7 +179,7 @@ def energy_calc(input_smiles,input_file):
 
                 tmp_list = torch.cat(tmp_list, dim=-1)
                 mean_list = torch.mean(tmp_list, dim=-1)
-						
+
                 pred_list.append(mean_list[:,0])
 
                 smi_list.extend(smi)
@@ -209,63 +188,61 @@ def energy_calc(input_smiles,input_file):
 
         pred_list = torch.cat(pred_list, dim=0).detach().cpu().numpy()
 
-	
+
 
         pred_list = list(np.around(pred_list, 3))
         galigandE = pred_list[0]
 	    #smi_list
 	    #pred_list
-	
 
 
 
 
 
-        return galigandE 
- 
+
+        return galigandE
+
     else:
-        smiles_in = input_check(input_files)
-        calc = Calculator(descriptors, ignore_3D=True)
-        m = Chem.MolFromSmiles(smiles_in)
-        descriptor = []
-        with open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/data/wor.txt','r') as gi:
-            for line in gi:
-                f = line.split(',')
-        f = np.array(list(map(int,f)))
-        mordred = np.array(list(calc(m)))
-        descriptor = mordred[f]
-        rege_input = np.array(descriptor)
-        rege_input = rege_input.reshape(1,-1)
-        galigandE = rege.predict(rege_input)
-        
-        return galigandE[0]
+        raise NotImplementedError
+    #     smiles_in = input_check(input_files)
+    #     calc = Calculator(descriptors, ignore_3D=True)
+    #     m = Chem.MolFromSmiles(smiles_in)
+    #     descriptor = []
+    #     with open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/data/wor.txt','r') as gi:
+    #         for line in gi:
+    #             f = line.split(',')
+    #     f = np.array(list(map(int,f)))
+    #     mordred = np.array(list(calc(m)))
+    #     descriptor = mordred[f]
+    #     rege_input = np.array(descriptor)
+    #     rege_input = rege_input.reshape(1,-1)
+    #     galigandE = rege.predict(rege_input)
+
+    #     return galigandE[0]
 
 
-def main():
-    print('start',time.ctime())
-    input_files = input_file
-    smiles_in = input_check(input_files)
-    calc = Calculator(descriptors, ignore_3D=True)
-    m = Chem.MolFromSmiles(smiles_in)
-    descriptor = []
-    with open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/data/wor.txt','r') as gi:
-        for line in gi:
-            f = line.split(',')
-    f = np.array(list(map(int,f)))
-    mordred = np.array(list(calc(m)))
-    descriptor = mordred[f]
-    rege_input = np.array(descriptor)
-    rege_input = rege_input.reshape(1,-1)
-    galigandE = rege.predict(rege_input)
+# def main():
+#     print('start',time.ctime())
+#     input_files = input_file
+#     smiles_in = input_check(input_files)
+#     calc = Calculator(descriptors, ignore_3D=True)
+#     m = Chem.MolFromSmiles(smiles_in)
+#     descriptor = []
+#     with open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/data/wor.txt','r') as gi:
+#         for line in gi:
+#             f = line.split(',')
+#     f = np.array(list(map(int,f)))
+#     mordred = np.array(list(calc(m)))
+#     descriptor = mordred[f]
+#     rege_input = np.array(descriptor)
+#     rege_input = rege_input.reshape(1,-1)
+#     galigandE = rege.predict(rege_input)
 
-    print(galigandE)
-    print('end',time.ctime())
-if __name__ == "__main__":
-    main()
+#     print(galigandE)
+#     print('end',time.ctime())
+# if __name__ == "__main__":
+#     main()
 
 
 #input file
 #smi
-
-
-
