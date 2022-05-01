@@ -115,6 +115,7 @@ class Molecule(object):
         self.smiles = smiles
         self.RDKmol = RDKmol
         self.source = source
+
         self.HasFunctionalGroup = {}
         self.determine_functional_groups()
 
@@ -181,6 +182,7 @@ class Molecule(object):
 
     def determine_functional_groups(self):
         # for in-silico reaction
+        self.HasFunctionalGroup = {}
         for fgrp, smarts in self.functional_group_dict.items():
             substructure = Chem.MolFromSmarts(smarts)
             self.HasFunctionalGroup[fgrp] = \
