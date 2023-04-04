@@ -1,29 +1,23 @@
 import os
 import sys
-import glob
 import random
 import argparse
+from time import time
 from typing import List
 
 import Galaxy
 import numpy as np
 from scipy.spatial import distance as D
-from opps.fragment_merge import gen_fr_mutation
-from opps.libs.utils import str2bool
 from rdkit import Chem
 from rdkit.Chem import RDConfig
-from opps.libfilter import prepare_catalog_filters
-from opps.libfilter import check_lipinski_filter
-from opps.fragment_merge import gen_fr_mutation
-from opps.fragment_merge import gen_crossover
-from opps.fragment_merge import make_fragments_set
-from opps.fragment_merge import *
-from opps.in_silico_reaction import (
-    Reaction, get_dict_from_json_file, get_compl_mol_dict)
-from opps.similarity_search import read_database_mol
-from opps.energy_calculation_tab import energy_calc,qed_calc,sa_calc
-from opps.visualization_tsne import make_fp_array,make_tsne_xy
 
+from opps.libs.utils import str2bool
+from opps.libfilter import prepare_catalog_filters, check_lipinski_filter
+from opps.fragment_merge import (
+    Molecule, gen_fr_mutation, gen_crossover, make_fragments_set,
+    calc_tanimoto_distance)
+from opps.energy_calculation_tab import energy_calc, qed_calc, sa_calc
+from opps.visualization_tsne import make_fp_array
 
 N_PROC_DOCK = 1
 
@@ -490,8 +484,6 @@ class CSA(object):
             gi.write(f'{self.radical_mother} and {self.radical_father}\n')
 
 if __name__=='__main__':
-    import sys
-    from time import time
     #prot_fn = Galaxy.core.FilePath(sys.argv[1])
 #       smiles_fn = Galaxy.core.FilePath(sys.argv[2])
     parser = argparse.ArgumentParser()
