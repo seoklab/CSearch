@@ -24,7 +24,7 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 
 class CSA(object):
-    def __init__(self, filter_lipinski=False, use_ML=True, ref_lig=None):
+    def __init__(self, use_ML=True, ref_lig=None):
         sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
         self.n_bank = 50
         self.n_seed = args.seed_num
@@ -39,7 +39,7 @@ class CSA(object):
         self.pdbid = args.pdbid
         self.n_opt_to_D_min = 50
         self.catalog_filters = prepare_catalog_filters(PAINS=True)
-        self.filter_lipinski=args.filter
+        self.filter_lipinski = args.filter
         self.ref_lig = ref_lig
 
     def initialize_csa(self, job, init_bank_smiles_fn, building_blocks_smiles_fn, n_proc=None):
@@ -200,7 +200,6 @@ class CSA(object):
 
     def make_new_confs(self, i_cycle):
         seed_selected = self.select_seeds()
-        in_silico_rxn_count = 0
         new_mol_gen_type = []
         new_mol_s: List[Molecule] = []
         mutation_all_s: List[Molecule] = []
@@ -227,7 +226,6 @@ class CSA(object):
                     radical_father += partner_mol2
                 for rad_mol in Rad_mol_s:
                     radical_son.append(str(rad_mol))
-                    r_s = ''.join(radical_son)
                     self.radical_sons += radical_son
                 self.radical_mother = ''.join(radical_mother)
                 self.radical_father = ''.join(radical_father)
@@ -249,7 +247,7 @@ class CSA(object):
             if len(new_mol_s) >= self.n_bank:
                 break
         frag_merge_count = len(new_mol_s)
-        for numofrgmer in range(0,frag_merge_count):
+        for _ in range(0,frag_merge_count):
             new_mol_gen_type.append('fr')
         #mutation,BRICS
         for i_seed in seed_selected:
@@ -268,7 +266,6 @@ class CSA(object):
                     radical_father += partner_mol2
                 for rad_mol in Rad_mol_s:
                     radical_son.append(str(rad_mol))
-                    r_s = ''.join(radical_son)
                     self.radical_sons += radical_son
                 self.radical_mother = ''.join(radical_mother)
                 self.radical_father = ''.join(radical_father)
@@ -292,7 +289,7 @@ class CSA(object):
 
             new_mol_s += mutation_all_s
             mutation_count += len(mutation_all_s)
-            for insilico in range(0,mutation_count):
+            for _ in range(0,mutation_count):
                 new_mol_gen_type.append('mut')
 
         new_qed_s = qed_calc(
