@@ -115,13 +115,11 @@ class CSA(object):
         self.bank_sa_s = sa_calc(initial_smiles)
         if args.frtrack:
             self.bank_frg = [make_fragments_set(i) for i in self.bank_pool]
-        self.job.mkdir('cycle_0')
         smiles_block_s = []
         with open(smiles_fn, 'r') as fp:
             for line in fp:
                 smiles_block_s.append(line)
 
-        self.job.chdir_prev()
         out_dir = f"{self.pdbid}_result"
         self.job.mkdir(out_dir, cd=False)
         with open(f'{out_dir}/csa_result.csv', 'w') as f:
