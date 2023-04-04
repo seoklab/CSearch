@@ -64,8 +64,8 @@ def sigmoid(x):
 
 
 def calibration(
-		label, 
-		pred, 
+		label,
+		pred,
 		bins=10
 	):
 
@@ -77,7 +77,7 @@ def calibration(
 	counts = []
 	for	i, threshold in enumerate(bin_centers):
 		bin_idx = np.logical_and(
-			threshold - width/2 < pred, 
+			threshold - width/2 < pred,
 			pred <= threshold + width
 		)
 		conf_mean = pred[bin_idx].mean()
@@ -145,7 +145,7 @@ def heteroscedastic_loss(
 	):
 	mean = pred[:,0]
 	logvar = pred[:,1]
-	
+
 	loss_val = torch.exp(-logvar) * (y - mean)**2 + logvar
 	loss_val *= 0.5
 	loss_val = torch.mean(loss_val, dim=0)
@@ -282,7 +282,7 @@ def evaluate_classification_multi2(
 
 		if true == pred:
 			correct += 1
-		
+
 	accuracy = correct / y_list.shape[0]
 	return accuracy
 
@@ -309,7 +309,7 @@ def plot_attention(
 		highlight_atoms = []
 		highlight_colors = []
 		for j, atom in enumerate(atom_list):
-			attn_val = round(attention_list[i, j] * num_atoms, 2) 
+			attn_val = round(attention_list[i, j] * num_atoms, 2)
 			atom.SetProp('atomLabel', str(attn_val))
 		legend = 'Pred: ' + str(round(pred_list[i], 2)) + ' '
 		legend += 'Unc: ' + str(round(unc_list[i], 2))

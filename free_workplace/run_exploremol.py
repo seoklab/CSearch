@@ -18,5 +18,3 @@ f'''#!/bin/sh
 #SBATCH -o {i}_result/csa_{i}_{now}.log
 python libfragcsa.py -p {i} -f True -t False''')
     os.system(f'sbatch explore_{i}_genmol.sh')
-
-    

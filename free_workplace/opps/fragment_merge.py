@@ -128,7 +128,7 @@ class Molecule_Pool(object):
 
     def make_fragments_set(self):
         b = set(seed_mol.pieces)
-            
+
 
 
 class Molecule(object):
@@ -255,11 +255,11 @@ def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
             rad_mol_s.append(mol)
             continue
         gen_mol_s.append(mol)
-        
+
     return gen_mol_s, rad_mol_s, Have_Rad
 
 def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski=False):
-    Have_Rad = False 
+    Have_Rad = False
     global i_start
     build_block_s = set()
     seed_s = set(seed_mol.pieces)
@@ -291,7 +291,7 @@ def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski
             rad_mol_s.append(mol)
             continue
         gen_mol_s.append(mol)
-        
+
     return gen_mol_s, rad_mol_s, Have_Rad
 
 def make_fragments_set(seed_mol):

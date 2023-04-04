@@ -12,9 +12,9 @@ from dgl.nn.functional import edge_softmax
 
 class MLP(nn.Module):
 	def __init__(
-		self, 
-		input_dim, 
-		hidden_dim, 
+		self,
+		input_dim,
+		hidden_dim,
 		output_dim,
 		bias=True,
 		act=F.relu,
@@ -29,7 +29,7 @@ class MLP(nn.Module):
 
 		self.linear1 = nn.Linear(input_dim, hidden_dim, bias=bias)
 		self.linear2 = nn.Linear(hidden_dim, output_dim, bias=bias)
-	
+
 	def forward(self, h):
 		h = self.linear1(h)
 		h = self.act(h)
@@ -50,10 +50,10 @@ class GraphConvolution(nn.Module):
 		self.norm = nn.LayerNorm(hidden_dim)
 		self.prob = dropout_prob
 		self.linear = nn.Linear(hidden_dim, hidden_dim, bias=False)
-	
+
 	def forward(
-			self, 
-			graph, 
+			self,
+			graph,
 			training=False
 		):
 		h0 = graph.ndata['h']
@@ -61,7 +61,7 @@ class GraphConvolution(nn.Module):
 		graph.update_all(fn.copy_u('h', 'm'), fn.sum('m', 'u_'))
 		h = self.act(self.linear(graph.ndata['u_'])) + h0
 		h = self.norm(h)
-			
+
 		# Apply dropout on node features
 		h = F.dropout(h, p=self.prob, training=training)
 
@@ -88,10 +88,10 @@ class GraphIsomorphism(nn.Module):
 		)
 		self.norm = nn.LayerNorm(hidden_dim)
 		self.prob = dropout_prob
-	
+
 	def forward(
-			self, 
-			graph, 
+			self,
+			graph,
 			training=False
 		):
 		h0 = graph.ndata['h']
@@ -99,7 +99,7 @@ class GraphIsomorphism(nn.Module):
 		graph.update_all(fn.copy_u('h', 'm'), fn.sum('m', 'u_'))
 		h = self.mlp(graph.ndata['u_']) + h0
 		h = self.norm(h)
-			
+
 		# Apply dropout on node features
 		h = F.dropout(h, p=self.prob, training=training)
 
@@ -126,10 +126,10 @@ class GraphIsomorphismEdge(nn.Module):
 			bias=bias_mlp,
 			act=act,
 		)
-	
+
 	def forward(
-			self, 
-			graph, 
+			self,
+			graph,
 			training=False
 		):
 		h0 = graph.ndata['h']
@@ -139,7 +139,7 @@ class GraphIsomorphismEdge(nn.Module):
 		u_ = graph.ndata['neigh'] + graph.ndata['u_']
 		h = self.mlp(u_) + h0
 		h = self.norm(h)
-			
+
 		# Apply dropout on node features
 		h = F.dropout(h, p=self.prob, training=training)
 
@@ -180,10 +180,10 @@ class GraphAttention(nn.Module):
 
 		self.act = F.elu
 		self.norm = nn.LayerNorm(hidden_dim)
-	
+
 	def forward(
-			self, 
-			graph, 
+			self,
+			graph,
 			training=False
 		):
 		h0 = graph.ndata['h']
@@ -196,7 +196,7 @@ class GraphAttention(nn.Module):
 		graph.apply_edges(fn.v_add_e('v', 'x_ij', 'm'))
 		graph.apply_edges(fn.u_mul_e('u', 'm', 'attn'))
 		graph.edata['attn'] = edge_softmax(graph, graph.edata['attn'] / math.sqrt(self.splitted_dim))
-	
+
 
 		graph.ndata['k'] = self.w4(h0).view(-1, self.num_heads, self.splitted_dim)
 		graph.edata['x_ij'] = self.w5(e_ij).view(-1, self.num_heads, self.splitted_dim)
@@ -204,18 +204,18 @@ class GraphAttention(nn.Module):
 
 		graph.edata['m'] = graph.edata['attn'] * graph.edata['m']
 		graph.update_all(fn.copy_edge('m', 'm'), fn.sum('m', 'h'))
-		
+
 		h = self.w6(h0) + graph.ndata['h'].view(-1, self.hidden_dim)
 		h = self.norm(h)
 
 		# Add and Norm module
 		h = h + self.mlp(h)
 		h = self.norm(h)
-			
+
 		# Apply dropout on node features
 		h = F.dropout(h, p=self.prob, training=training)
 
-		graph.ndata['h'] = h 
+		graph.ndata['h'] = h
 		return graph
 
 
@@ -229,7 +229,7 @@ class PMALayer(nn.Module):
 		):
 		super().__init__()
 
-		self.k = k 
+		self.k = k
 		self.hidden_dim = hidden_dim,
 		self.num_heads = num_heads
 		self.norm_features = norm_features
@@ -251,7 +251,7 @@ class PMALayer(nn.Module):
 
 		lengths = graph.batch_num_nodes()
 		batch_size = len(lengths)
-		
+
 		device = h.device
 		self.seed_vec = self.seed_vec.to(device)
 		if self.k == 1:
@@ -284,7 +284,7 @@ class MultiHeadAttention(nn.Module):
 		self.w_k = nn.Linear(hidden_dim, hidden_dim, bias=False)
 		self.w_v = nn.Linear(hidden_dim, hidden_dim, bias=False)
 		self.w_o = nn.Linear(hidden_dim, hidden_dim, bias=False)
-	
+
 
 	def forward(
 			self,

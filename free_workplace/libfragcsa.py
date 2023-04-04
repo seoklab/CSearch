@@ -39,7 +39,7 @@ class CSA(object):
         #'dcut1': 2.0, # initial Dcut is the initial average diff / dcut1
         #'dcut2': 5.0, # minimum Dcut is the initial average diff / dcut2
         self.seed_mask = []  # any index in the list is not selected as a seed
-        self.n_csa_iter = 1 
+        self.n_csa_iter = 1
         self.n_seed_cycle = args.seed_cycle
         self.max_opt_cycle = 50
         self.dist_mat = np.zeros((self.n_bank, self.n_bank))
@@ -120,7 +120,7 @@ class CSA(object):
 
     def read_initial_bank(self, smiles_fn):
         self.bank_pool: List[Molecule] = []
-        
+
         with open(smiles_fn, 'r') as f_n:
             for i_mol, line in enumerate(f_n):
                 smile_str = line.split()
@@ -182,7 +182,7 @@ class CSA(object):
 
     def building_block_setup(self,smiles_fn):
         self.building_pool: List[Molecule] = []
-        
+
         with open(smiles_fn, 'r') as f_n:
             for i_mol, line in enumerate(f_n):
                 smile_str = line.split()
@@ -200,7 +200,7 @@ class CSA(object):
                 self.building_pool.append(mol)
                 if len(self.building_pool) == 20*self.n_bank:
                     break
-        
+
 
 
     @staticmethod

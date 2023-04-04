@@ -61,6 +61,3 @@ with open('initial_bank_0531.smi', 'a') as outfile:
                     near_molecule = False
         if len(out) ==48:
             break
-
-                            
-

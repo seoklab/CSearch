@@ -13,9 +13,9 @@ from libs.layers import PMALayer
 
 class MyModel(nn.Module):
 	def __init__(
-			self, 
+			self,
 			model_type,
-			num_layers=4, 
+			num_layers=4,
 			hidden_dim=64,
 			num_heads=4, # Only used for GAT
 			dropout_prob=0.2,
@@ -83,10 +83,10 @@ class MyModel(nn.Module):
 		self.apply_sigmoid = apply_sigmoid
 		if self.apply_sigmoid:
 			self.sigmoid = F.sigmoid
-	
+
 
 	def forward(
-			self, 
+			self,
 			graph,
 			training=False,
 		):
@@ -117,8 +117,8 @@ class MyModel(nn.Module):
 
 class MLP_model(nn.Module):
 	def __init__(
-			self, 
-			num_layers=3, 
+			self,
+			num_layers=3,
 			inp_dim=1024,
 			hidden_dim=512,
 			dropout_prob=0.2,
@@ -140,7 +140,7 @@ class MLP_model(nn.Module):
 
 		if self.apply_sigmoid:
 			self.sigmoid = F.sigmoid
-	
+
 	def forward(self, x, training=False):
 		x = x.float()
 
@@ -155,4 +155,3 @@ class MLP_model(nn.Module):
 		if self.apply_sigmoid:
 			out = self.sigmoid(out)
 		return out
-

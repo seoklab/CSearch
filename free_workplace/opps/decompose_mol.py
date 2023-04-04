@@ -226,7 +226,7 @@ def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
         if NumRadicalElectrons(mol) != 0:
             Have_Rad = True
         gen_mol_s.append(mol)
-        
+
     return gen_mol_s, Have_Rad
 
 def calc_tanimoto_distance(mol1, mol2):
