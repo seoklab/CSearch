@@ -120,10 +120,13 @@ class CSA(object):
         with open(smiles_fn, 'r') as fp:
             for line in fp:
                 smiles_block_s.append(line)
-        with open(f'/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/free_workplace/{self.pdbid}_result/csa_result.csv', 'w') as hj:
-            hj.write(',max,min,average,in_silico,fragment\n')
 
         self.job.chdir_prev()
+        out_dir = f"{self.pdbid}_result"
+        self.job.mkdir(out_dir, cd=False)
+        with open(f'{out_dir}/csa_result.csv', 'w') as f:
+            f.write(',max,min,average,in_silico,fragment\n')
+
         self.radical_mother = ''
         self.radical_father = ''
         self.radical_sons = []
@@ -420,6 +423,12 @@ if __name__ == '__main__':
         "-p", "--pdbid", type=str, required=True,
         help='Write the target pdbid')
     parser.add_argument(
+        "-i", "--initial-bank", required=True, dest="smiles_fn",
+        help='Initial bank smiles file')
+    parser.add_argument(
+        "-b", "--building-blocks", required=True, dest="build_fn",
+        help='Building blocks smiles file')
+    parser.add_argument(
         "-s", "--seed_num", type=int, default=25,
         help='Number of Starting Seed')
     parser.add_argument(
@@ -432,12 +441,8 @@ if __name__ == '__main__':
         "-t", "--filter", type=str2bool, default=True,
         help='Filtering generated molecule by lipinski rule of 5')
     args = parser.parse_args()
-    smiles_fn = ('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/'
-                 f'data/initial_bank_{args.pdbid}_0302.smi')
-    smiles_fn = os.path.abspath(smiles_fn)
-    build_fn = ('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/'
-                'data/Enamine_Fragment_Collection_single.smi')
-    build_fn = os.path.abspath(build_fn)
+    smiles_fn = os.path.abspath(args.smiles_fn)
+    build_fn = os.path.abspath(args.build_fn)
 
     start = time()
     job = Galaxy.initialize(title='Test_OptMol', mkdir=False)
