@@ -1,9 +1,7 @@
-import random
 import os
 import json
 import tempfile
 import subprocess as sp
-import numpy as np
 from typing import List
 
 from rdkit import Chem
@@ -12,7 +10,7 @@ from rdkit.Chem.Descriptors import NumRadicalElectrons
 from openbabel import pybel
 from openbabel.pybel import readfile, readstring
 
-from .libfilter import check_catalog_filters, check_lipinski_filter
+from libfilter import check_catalog_filters, check_lipinski_filter
 
 __all__ = ["EXEC_CORINA", "Molecule_Pool", "Molecule",
            "get_dict_from_json_file", "gen_crossover",
@@ -33,7 +31,7 @@ class Molecule_Pool(object):
         if input_fn.endswith('mol2'):
             self.read_molecules_from_mol2_fn_pybel(input_fn, n_mol)
         else:
-            self.read_molecules_from_smiles_fn(input_fn, n_mol)
+            self.read_molecules_from_smiles_fn(input_fn)
 
     def __len__(self):
         return len(self.mol_s)
@@ -95,40 +93,18 @@ class Molecule_Pool(object):
             mol_pybel.draw(show=False, filename=f'generated/start_{i}.png')
 
         fragms = list(map(Chem.MolFromSmiles, frag_s))
+        print(fragms)
         ms = BRICS.BRICSBuild(fragms, scrambleReagents=True)
         for i, mol in enumerate(ms):
             mol_block = Chem.MolToMolBlock(mol)
             mol_pybel = readstring('mol', mol_block)
             mol_pybel.draw(show=False, filename=f'generated/gen_{i}.png')
-
-    def gen_fr_mutation(self):
-        frag_s = set()
-
-        for i, mol in enumerate(self.mol_s):
-            mol.decompose(method='BRICS')
-            frag_s.update(mol.pieces)
-
-            mol_block = Chem.MolToMolBlock(mol.RDKmol)
-            mol_pybel = readstring('mol', mol_block)
-            mol_pybel.draw(show=False, filename=f'generated/start_{i}.png')
-
-        fragms = list(map(Chem.MolFromSmiles, frag_s))
-        ms = BRICS.BRICSBuild(fragms, scrambleReagents=True)
-        for i, mol in enumerate(ms):
-            mol_block = Chem.MolToMolBlock(mol)
-            mol_pybel = readstring('mol', mol_block)
-            mol_pybel.draw(show=False, filename=f'generated/gen_{i}.png')
-
 
     def determine_functional_groups(self):
         for mol in self.mol_s:
             if not len(mol.HasFunctionalGroup) == 0:
                 continue
             mol.determine_functional_groups()
-
-    def make_fragments_set(self):
-        b = set(seed_mol.pieces)
-            
 
 
 class Molecule(object):
@@ -237,7 +213,6 @@ def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
     ms = list(ms)
 
     gen_mol_s = []
-    rad_mol_s = []
     for mol in ms:
         Chem.SanitizeMol(mol)
         if not filters == None:
@@ -249,55 +224,10 @@ def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
             if check_lipinski:
                 continue
         if NumRadicalElectrons(mol) != 0:
-            if '[NH' or '[P]' in str(Chem.MolToSmiles(mol)):
-                continue
             Have_Rad = True
-            rad_mol_s.append(mol)
-            continue
         gen_mol_s.append(mol)
         
-    return gen_mol_s, rad_mol_s, Have_Rad
-
-def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski=False):
-    Have_Rad = False 
-    global i_start
-    build_block_s = set()
-    seed_s = set(seed_mol.pieces)
-    a = random.sample(building_block_pool, k=50)
-    for i in a:
-        build_block_s.update(set(i.pieces))
-
-    seedms = [Chem.MolFromSmiles(x) for x in seed_s]
-    buildms = [Chem.MolFromSmiles(x) for x in build_block_s]
-    ms = BRICS.BRICSBuild(buildms, scrambleReagents=True, seeds=seedms)
-    ms = list(ms)
-
-    gen_mol_s = []
-    rad_mol_s = []
-    for mol in ms:
-        Chem.SanitizeMol(mol)
-        if not filters == None:
-            check_catalog = check_catalog_filters(mol, filters)
-            if check_catalog:
-                continue
-        if filter_lipinski:
-            check_lipinski = check_lipinski_filter(mol)
-            if check_lipinski:
-                continue
-        if NumRadicalElectrons(mol) != 0:
-            if '[NH' or '[P]' in str(Chem.MolToSmiles(mol)):
-                continue
-            Have_Rad = True
-            rad_mol_s.append(mol)
-            continue
-        gen_mol_s.append(mol)
-        
-    return gen_mol_s, rad_mol_s, Have_Rad
-
-def make_fragments_set(seed_mol):
-    b = set(seed_mol.pieces)
-    return b
-
+    return gen_mol_s, Have_Rad
 
 def calc_tanimoto_distance(mol1, mol2):
     mol1 = str(mol1)
@@ -326,7 +256,7 @@ def fix_smiles(smiles):
     return smiles
 
 if __name__=='__main__':
-    mol_pool = Molecule_Pool('sample.mol2')
+    mol_pool = Molecule_Pool('../example/radicalparents.smi')
 #    mol_pool.gen_crossover()
 #    #print mol_pool
 #
@@ -335,7 +265,8 @@ if __name__=='__main__':
 #    #print functional_group_dict['Alcohol_clickchem']
 #    mol_pool[0].determine_functional_groups(functional_group_dict)
 #    print(mol_pool[0])
-
-    mol_pool[0].decompose()
-    mol_pool[1].decompose()
-    gen_crossover(mol_pool[0], mol_pool[1])
+    #print(mol_pool)
+    for i in range(0,len(mol_pool)):
+        mol_pool[i].decompose()
+        print(mol_pool[i].pieces)
+    #gen_crossover(mol_pool[0], mol_pool[1])

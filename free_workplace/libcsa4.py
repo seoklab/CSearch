@@ -33,13 +33,13 @@ class CSA(object):
         #'dcut2': 5.0, # minimum Dcut is the initial average diff / dcut2
         self.seed_mask = []  # any index in the list is not selected as a seed
         self.n_csa_iter = 1 
-        self.n_seed_cycle = 5
+        self.n_seed_cycle = 10
         self.max_opt_cycle = 150
         self.dist_mat = np.zeros((self.n_bank, self.n_bank))
         self.use_ML = use_ML
         self.seed_cycle = 1
         self.g_array = []
-        self.pdbid = "6M0K"
+        self.pdbid = "5P9H"
         self.n_opt_to_D_min = 100
 
         fn_database_mol = '/home/hakjean/galaxy2/developments/MolGen/db_chembl/2020-01-BioDesign.sdf'
@@ -56,7 +56,7 @@ class CSA(object):
         #with torch.no_grad():
         #    # ML model load
         #    model_s = [MyModel().to(device) for _ in MODEL_FN_S]
-        #    eemodel.load_state_dict(torch.load(fn, map_location=device)['model_state_dict']) for model,fn in zip(model_s,MODEL_FN_S)]
+        #    [model.load_state_dict(torch.load(fn, map_location=device)['model_state_dict']) for model,fn in zip(model_s,MODEL_FN_S)]
         #    [model.eval() for model in model_s]
         #self.model_s = model_s
 
@@ -113,9 +113,8 @@ class CSA(object):
                 print(f"D_cut : {self.D_cut}")
                 if len(self.seed_mask) ==0:
                     if self.seed_cycle == self.n_seed_cycle:
-                        #make_tsne_xy(self.g_array)
+                        make_tsne_xy(self.g_array)
                         return
-                    self.select_seeds()
                     self.seed_cycle += 1
 
     def read_initial_bank(self, smiles_fn):
@@ -446,10 +445,9 @@ class CSA(object):
 if __name__=='__main__':
     import sys
     #prot_fn = Galaxy.core.FilePath(sys.argv[1])
-#       smiles_fn = Galaxy.core.FilePath(sys.argv[2])
+    smiles_fn = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/initial_bank_5P9H_0302.smi'
+    # smiles_fn = Galaxy.core.FilePath(sys.argv[2])
     #smiles_fn = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/initial_bank_6M0K_0214.smi'
-    smiles_fn = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/initial_bank96_1130.smi'
-
     smiles_fn = os.path.abspath(smiles_fn)
     #smiles_fn = os.path.relpat
     #opt_fn =  sys.argv[3]

@@ -1,6 +1,5 @@
 import os
 import time
-import argparse
 import numpy as np
 
 import joblib
@@ -10,13 +9,6 @@ from rdkit.Chem.Descriptors import *
 from rdkit.Chem.rdMolDescriptors import *
 
 rege = joblib.load('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/data/rf_hj_pd_736_1695_07.pkl')
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--i', default='smi')
-parser.add_argument('--i_file', default='/home/hakjean/test/test2/chembldata/chembl_27_sdf/nonhsmiles/CHEMBL58016.smi')
-args = parser.parse_args()
-input_type = args.i
-input_file = args.i_file
 
 #global input_type
 #input_type = 'smi'

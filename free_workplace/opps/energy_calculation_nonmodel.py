@@ -1,17 +1,23 @@
-import os, sys
+import os
 import time
+import argparse
 import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
-from rdkit.Chem import QED
-from rdkit.Chem import RDConfig
-from rdkit.Chem.QED import qed
 from rdkit.Chem.Descriptors import *
 from rdkit.Chem.rdMolDescriptors import *
+
 from .libs.models import MyModel
 from .libs.io_inference import MyDataset, my_collate_fn
 from .libs.utils import set_seed, set_device
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--i', default='smi')
+parser.add_argument('--i_file', default='/home/hakjean/test/test2/chembldata/chembl_27_sdf/nonhsmiles/CHEMBL58016.smi')
+args = parser.parse_args()
+input_type = args.i
+input_file = args.i_file
 
 
 def input_check(input_files):
@@ -31,34 +37,15 @@ def input_check(input_files):
 
     return smiles
 
-def sa_calc(input_smiles):
-    output_sa = []
-    sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
-    import sascorer
-    for i in input_smiles:
-        m = Chem.MolFromSmiles(str(i))
-        s = sascorer.calculateScore(m)
-        output_sa.append(s)
-    output_sa = list(np.around(output_sa, 3))
-    return output_sa
 
-
-def qed_calc(input_smiles):
-    output_qed = []
-    for i in input_smiles:
-        m = Chem.MolFromSmiles(str(i))
-        qed = Chem.QED.qed(m)
-        output_qed.append(qed)
-
-    output_qed = list(np.around(output_qed, 3))
-    return output_qed
-
-def energy_calc(input_smiles, input_file, input_pdbid):
+def energy_calc(input_smiles, input_file, model):
     if input_file == 'csa':
         # Set random seeds and device
         set_seed(seed=621)
-        a = torch.cuda.current_device()
-        device = set_device(use_gpu=True, gpu_idx=a)
+        device = set_device(
+            use_gpu=True,
+            gpu_idx=1
+        )
 
         # Call smiles from input
         smiles_in = input_smiles
@@ -78,30 +65,7 @@ def energy_calc(input_smiles, input_file, input_pdbid):
         #print("test_loader")
         #print(test_loader)
         #Construct model and load trained parameters if it is possible
-        reo = 'pma'
-        #if input_pdbid == "5P9H":
-        #    reo = 'mean'
-
-        model = MyModel(
-            model_type = 'gcn',
-            num_layers=4,
-		    hidden_dim=128,
-		    readout=reo,
-		    dropout_prob=0.2,
-		    out_dim=2,
-        )
-        model = model.to(device)
-
-        if input_pdbid == "4DJQ":
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/4djq_gcn_128_pma_m2cdo.pth'
-        elif input_pdbid == "5P9H":
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/5p9h_gcn_128_pma.pth'
-        elif input_pdbid == "6M0K":
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/save/MCDO_gcn_128_pma_mcdo.pth'
-        ckpt = torch.load(save_path, map_location=device)
-        model.load_state_dict(ckpt['model_state_dict'])
-        model.eval()
-        #ff = open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')
+       #ff = open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')
 
         with torch.no_grad():
             pred_list = []
@@ -147,13 +111,13 @@ def energy_calc(input_smiles, input_file, input_pdbid):
         # Set random seeds and device
         set_seed(seed=621)
         device = set_device(
-            use_gpu=True,
+            use_gpu=False,
             gpu_idx=1
         )
 
         # Call smiles from input
         smiles_in = input_smiles
-        #print(smiles_in)
+        print(smiles_in)
         if smiles_in.find('~') != -1:
 
             smiles_in.replace('~','')
@@ -167,31 +131,7 @@ def energy_calc(input_smiles, input_file, input_pdbid):
     	)
 
         #Construct model and load trained parameters if it is possible
-        reo = 'pma'
-        if input_pdbid == "5P9H":
-            reo = 'mean'
-
-        model = MyModel(
-            model_type = 'gcn',
-            num_layers=4,
-		    hidden_dim=128,
-		    readout=reo,
-		    dropout_prob=0.2,
-		    out_dim=2,
-        )
-        model = model.to(device)
-
-        if input_pdbid == "4DJQ":
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/4djq_gcn_128_pma_m2cdo.pth'
-        elif input_pdbid == "5P9H":
-            #save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/5p9h_gcn_128_pma.pth'
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/5p9h_mean.pth'
-        elif input_pdbid == "6M0K":
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/save/MCDO_gcn_128_pma_mcdo.pth'
-        ckpt = torch.load(save_path, map_location=device)
-        model.load_state_dict(ckpt['model_state_dict'])
-        model.eval()
-        #ff = open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')
+       #ff = open('uhome/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')
 
         with torch.no_grad():
             pred_list = []
