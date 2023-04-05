@@ -4,7 +4,7 @@ import json
 import tempfile
 import subprocess as sp
 import numpy as np
-from typing import List
+from typing import List, Set
 
 from rdkit import Chem
 from rdkit.Chem import Recap, BRICS, AllChem, DataStructs
@@ -126,10 +126,6 @@ class Molecule_Pool(object):
                 continue
             mol.determine_functional_groups()
 
-    def make_fragments_set(self):
-        b = set(seed_mol.pieces)
-
-
 
 class Molecule(object):
     fn_func_json = '/home/hakjean/galaxy2/developments/MolGen/db_chembl/All_Rxns_functional_groups.json'
@@ -149,6 +145,8 @@ class Molecule(object):
         self.mol2_block: List[str] = []
         if build_3d:
             self._build_mol2_3D()
+
+        self.pieces: Set[str] = set()
 
     @classmethod
     def from_smiles(cls, smiles: str, source=None, build_3d=False):
@@ -192,11 +190,15 @@ class Molecule(object):
     def decompose(self, method='BRICS'):
         # for BRICS retrosynthesis
         if method == 'BRICS':
-            self.pieces = BRICS.BRICSDecompose(
+            pieces = BRICS.BRICSDecompose(
                 self.RDKmol, minFragmentSize=4,
                 singlePass=True, keepNonLeafNodes=True)
         elif method == 'RECAP':
-            self.pieces = Recap.RecapDecompose(self.RDKmol)
+            pieces = Recap.RecapDecompose(self.RDKmol)
+        else:
+            raise NotImplementedError
+
+        self.pieces = set(pieces)
 
     def determine_functional_groups(self):
         # for in-silico reaction
@@ -219,8 +221,8 @@ i_start = 0
 def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
     Have_Rad = False
     global i_start
-    seed_s = set(seed_mol.pieces)
-    frag_s = set(partner_mol.pieces)
+    seed_s = seed_mol.pieces
+    frag_s = partner_mol.pieces
 
     fragms = [Chem.MolFromSmiles(x) for x in frag_s]
     seedms = [Chem.MolFromSmiles(x) for x in seed_s]
@@ -251,13 +253,14 @@ def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
     return gen_mol_s, rad_mol_s, Have_Rad
 
 def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski=False):
-    Have_Rad = False
     global i_start
+    Have_Rad = False
+    seed_s = seed_mol.pieces
+
     build_block_s = set()
-    seed_s = set(seed_mol.pieces)
     a = random.sample(building_block_pool, k=50)
     for i in a:
-        build_block_s.update(set(i.pieces))
+        build_block_s.update(i.pieces)
 
     seedms = [Chem.MolFromSmiles(x) for x in seed_s]
     buildms = [Chem.MolFromSmiles(x) for x in build_block_s]
@@ -285,10 +288,6 @@ def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski
         gen_mol_s.append(mol)
 
     return gen_mol_s, rad_mol_s, Have_Rad
-
-def make_fragments_set(seed_mol):
-    b = set(seed_mol.pieces)
-    return b
 
 
 def calc_tanimoto_distance(mol1, mol2):

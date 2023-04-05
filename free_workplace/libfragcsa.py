@@ -14,8 +14,7 @@ from rdkit.Chem import RDConfig
 from opps.libs.utils import str2bool
 from opps.libfilter import prepare_catalog_filters, check_lipinski_filter
 from opps.fragment_merge import (
-    Molecule, gen_fr_mutation, gen_crossover, make_fragments_set,
-    calc_tanimoto_distance)
+    Molecule, gen_fr_mutation, gen_crossover, calc_tanimoto_distance)
 from opps.energy_calculation_tab import energy_calc, qed_calc, sa_calc
 
 N_PROC_DOCK = 1
@@ -108,7 +107,7 @@ class CSA(object):
         self.bank_qed_s = qed_calc(initial_mols)
         self.bank_sa_s = sa_calc(initial_mols)
         if args.frtrack:
-            self.bank_frg = [make_fragments_set(i) for i in self.bank_pool]
+            self.bank_frg = [i.pieces for i in self.bank_pool]
         smiles_block_s = []
         with open(smiles_fn, 'r') as fp:
             for line in fp:
@@ -339,8 +338,6 @@ class CSA(object):
                     self.bank_qed_s[min_idx] = i_qed_s
                     self.bank_sa_s[min_idx] = i_sa_s
                     if args.frtrack:
-                        self.bank_frg[min_idx] = make_fragments_set(
-                            self.bank_pool[min_idx])
                         print(
                             f'New molecule Fragments:{self.bank_frg[min_idx]}')
                     if not min_idx in self.seed_mask:
@@ -357,8 +354,6 @@ class CSA(object):
                 self.bank_qed_s[i_Emax_bank_u] = i_qed_s
                 self.bank_sa_s[i_Emax_bank_u] = i_sa_s
                 if args.frtrack:
-                    self.bank_frg[i_Emax_bank_u] = make_fragments_set(
-                        self.bank_pool[i_Emax_bank_u])
                     print('New molecule Fragments:' +
                           str(self.bank_frg[i_Emax_bank_u]))
                 if not i_Emax_bank_u in self.seed_mask:
