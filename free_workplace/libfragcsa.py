@@ -17,7 +17,6 @@ from opps.fragment_merge import (
     Molecule, gen_fr_mutation, gen_crossover, make_fragments_set,
     calc_tanimoto_distance)
 from opps.energy_calculation_tab import energy_calc, qed_calc, sa_calc
-from opps.visualization_tsne import make_fp_array
 
 N_PROC_DOCK = 1
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
@@ -35,7 +34,6 @@ class CSA(object):
         self.dist_mat = np.zeros((self.n_bank, self.n_bank))
         self.use_ML = use_ML
         self.seed_cycle = 1
-        self.g_array = []
         self.pdbid = args.pdbid
         self.n_opt_to_D_min = 50
         self.catalog_filters = prepare_catalog_filters(PAINS=True)
@@ -64,8 +62,6 @@ class CSA(object):
                 print(len(new_smiles_s))
                 (a, b) = operat_count
                 print('Mutation operator : %d, Crossover operator : %d'%(b,a))
-                gn = make_fp_array(new_smiles_s, 'MACCS')
-                self.g_array = np.concatenate((self.g_array, gn), axis=0)
                 self.update_bank(new_smiles_s, new_energy_s, new_mol_gen_type,
                                  new_qed_s, new_sa_s)
                 self.update_distance()
@@ -108,7 +104,6 @@ class CSA(object):
         self.update_functional_groups()
         initial_smiles = [
             mol.smiles.replace("~", "") for mol in self.bank_pool]
-        self.g_array = make_fp_array(initial_smiles, 'MACCS')
         self.energy_bank_pool = energy_calc(initial_smiles, "csa", self.pdbid)
         self.bank_gen_type = ['o'] * self.n_bank
         self.bank_qed_s = qed_calc(initial_smiles)
