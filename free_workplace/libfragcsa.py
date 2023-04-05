@@ -8,7 +8,6 @@ from typing import List
 import Galaxy
 import numpy as np
 from scipy.spatial import distance as D
-from rdkit import Chem
 from rdkit.Chem import RDConfig
 
 from opps.libs.utils import str2bool
