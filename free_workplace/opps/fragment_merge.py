@@ -172,16 +172,8 @@ class Molecule(object):
         return self.smiles
 
     def _build_mol2_3D(self):
-        with tempfile.NamedTemporaryFile(mode='w+t') as temp_fn_smi:
-            temp_fn_smi.write(self.smiles)
-            temp_fn_smi.flush()
-
-            ret = sp.run(
-                ["corina", '-i', "t=smiles", temp_fn_smi.name, "-o", "t=mol2"],
-                stdout=sp.PIPE, check=True, text=True)
-
-        os.unlink("corina.trc")
-
+        ret = sp.run(["corina", '-i', "t=smiles", "-o", "t=mol2", "-t", "n"],
+                     input=self.smiles, stdout=sp.PIPE, check=True, text=True)
         self.mol2_block = [line for line in ret.stdout.splitlines()
                            if not line.startswith('#')]
         if not self.mol2_block:
