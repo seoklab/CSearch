@@ -129,7 +129,9 @@ class Molecule_Pool(object):
 
 class Molecule(object):
     fn_func_json = '/home/hakjean/galaxy2/developments/MolGen/db_chembl/All_Rxns_functional_groups.json'
-    functional_group_dict: dict = get_dict_from_json_file(fn_func_json)
+    functional_group_dict: dict = {
+        fgrp: Chem.MolFromSmarts(smarts)
+        for fgrp, smarts in get_dict_from_json_file(fn_func_json).items()}
 
     ##MOVE MOLECULE TO CORE
     # read molecule information
@@ -202,11 +204,9 @@ class Molecule(object):
 
     def determine_functional_groups(self):
         # for in-silico reaction
-        self.HasFunctionalGroup = {}
-        for fgrp, smarts in self.functional_group_dict.items():
-            substructure = Chem.MolFromSmarts(smarts)
-            self.HasFunctionalGroup[fgrp] = \
-                self.RDKmol.HasSubstructMatch(substructure)
+        self.HasFunctionalGroup = {
+            fgrp: self.RDKmol.HasSubstructMatch(substruct)
+            for fgrp, substruct in self.functional_group_dict.items()}
 
     def draw(self, output_fn='output.png'):
         # 2d visualization of molecules
