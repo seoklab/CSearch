@@ -13,6 +13,9 @@ from .libs.models import MyModel
 from .libs.io_inference import MyDataset, my_collate_fn
 from .libs.utils import set_seed, set_device
 
+sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
+import sascorer
+
 
 _models = {}
 
@@ -74,9 +77,6 @@ def input_check(input_files):
 
 
 def sa_calc(input_mols):
-    sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
-    import sascorer
-
     output_sa = [sascorer.calculateScore(mol) for mol in input_mols]
     output_sa = list(np.around(output_sa, 3))
     return output_sa
