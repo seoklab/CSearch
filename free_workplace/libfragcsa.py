@@ -59,16 +59,16 @@ class CSA(object):
                  new_sa_s, operat_count) = self.make_new_confs(i_opt_cycle)
                 print(len(new_smiles_s))
                 (a, b) = operat_count
-                print('Mutation operator : %d, Crossover operator : %d'%(b,a))
+                print(f'Mutation operator : {b}, Crossover operator : {a}')
                 self.update_bank(new_smiles_s, new_energy_s, new_mol_gen_type,
                                  new_qed_s, new_sa_s)
                 self.update_distance()
                 self.update_functional_groups()
                 self.print_log()
-                print('CSA Run Number / Iteration / Seed cycle = %d / %d / %d'
-                      % (i_csa_iter, i_opt_cycle, self.seed_cycle))
-                print('D_avg/D_cut/D_min=%.3f/%.3f/%.3f'
-                      % (self.D_avg, self.D_cut, self.D_cut_min))
+                print('CSA Run Number / Iteration / Seed cycle = '
+                      f'{i_csa_iter} / {i_opt_cycle} / {self.seed_cycle}')
+                print(f'D_avg/D_cut/D_min={self.D_avg:.3f}/{self.D_cut:.3f}'
+                      f'/{self.D_cut_min:.3f}')
                 self.write_bank(i_opt_cycle)
                 # update_distance
                 self.D_cut = self.D_cut * self.xctdif
@@ -321,9 +321,8 @@ class CSA(object):
             # replace current bank
             if (min_dist < self.D_cut):
                 if i_energy < self.energy_bank_pool[min_idx]:
-                    print('B%d %.3f was replaced to %d %.3f in same group'
-                          % (min_idx, self.energy_bank_pool[min_idx],
-                             i, i_energy))
+                    print(f'B{min_idx} {self.energy_bank_pool[min_idx]:.3f} '
+                          f'was replaced to {i} {i_energy:.3f} in same group')
 
                     print(f"before {self.bank_pool[min_idx]} after {i_mol}")
                     self.bank_pool[min_idx] = i_mol
@@ -337,10 +336,9 @@ class CSA(object):
                     if min_idx not in self.seed_mask:
                         self.seed_mask.append(min_idx)
             else:
-                print('B%d %.3f was replaced to %d %.3f in new group' %
-                      (i_Emax_bank_u, self.energy_bank_pool[i_Emax_bank_u],
-                       i, i_energy))
-
+                print(f'B{i_Emax_bank_u} '
+                      f'{self.energy_bank_pool[i_Emax_bank_u]:.3f} was '
+                      f'replaced to {i} {i_energy:.3f} in new group')
                 print(f"before {self.bank_pool[i_Emax_bank_u]} after {i_mol}")
                 self.bank_pool[i_Emax_bank_u] = i_mol
                 self.energy_bank_pool[i_Emax_bank_u] = i_energy
@@ -355,7 +353,7 @@ class CSA(object):
 
     def print_log(self):
         for i in range(self.n_bank):
-            print('Bank %d:success'%(i+1))
+            print(f'Bank {i + 1}:success')
         if args.frtrack:
             hajime = True
             for sets in self.bank_frg:
@@ -367,7 +365,7 @@ class CSA(object):
             print(f'Number of Fragments:{len(emptyset)}')
 
     def write_bank(self, i_cycle):
-        with open(f'{self.pdbid}_result/csa_%d.log' % i_cycle, 'wt') as fp:
+        with open(f'{self.pdbid}_result/csa_{i_cycle}.log', 'wt') as fp:
             for i, (i_mol, i_energy, i_gentype, i_qed_s, i_sa_s) in enumerate(
                     zip(self.bank_pool, self.energy_bank_pool,
                         self.bank_gen_type, self.bank_qed_s, self.bank_sa_s)):

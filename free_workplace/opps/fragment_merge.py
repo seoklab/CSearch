@@ -42,7 +42,7 @@ class Molecule_Pool(object):
         return self.mol_s[i]
 
     def __repr__(self):
-        smi_s = '\n'.join(['%s'%mol.smiles for mol in self.mol_s])
+        smi_s = '\n'.join(map(str, self.mol_s))
         return smi_s
 
     def read_molecules_from_smiles_fn(self, smi_fn):
