@@ -1,5 +1,4 @@
 import os
-import sys
 import random
 import argparse
 from time import time
@@ -8,7 +7,6 @@ from typing import List
 import Galaxy
 import numpy as np
 from scipy.spatial import distance as D
-from rdkit.Chem import RDConfig
 
 from opps.libs.utils import str2bool
 from opps.libfilter import prepare_catalog_filters, check_lipinski_filter
@@ -22,7 +20,6 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 class CSA(object):
     def __init__(self, use_ML=True, ref_lig=None):
-        sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
         self.n_bank = 50
         self.n_seed = args.seed_num
         self.seed_mask = []  # any index in the list is not selected as a seed
