@@ -318,8 +318,6 @@ class CSA(object):
                       for bank_mol in self.bank_pool]
             min_idx = np.argmin(dist_s)
             min_dist = dist_s[min_idx]
-            i_mol.RDKmol.UpdatePropertyCache()
-            Chem.GetSymmSSSR(i_mol.RDKmol)
 
             # replace current bank
             if (min_dist < self.D_cut):
