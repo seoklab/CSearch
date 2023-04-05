@@ -96,7 +96,6 @@ class CSA(object):
                 if mol.RDKmol is None:
                     print(f'error processing {i_mol}th molecule')
                     continue
-                mol.decompose()
                 self.bank_pool.append(mol)
                 if len(self.bank_pool) == self.n_bank:
                     break
@@ -139,7 +138,6 @@ class CSA(object):
                 if mol.RDKmol is None:
                     print(f'error processing {i_mol}th molecule')
                     continue
-                mol.decompose()
                 self.building_pool.append(mol)
                 if len(self.building_pool) == 20 * self.n_bank:
                     break
@@ -322,7 +320,6 @@ class CSA(object):
             min_dist = dist_s[min_idx]
             i_mol.RDKmol.UpdatePropertyCache()
             Chem.GetSymmSSSR(i_mol.RDKmol)
-            i_mol.decompose()  # move to somewhere
 
             # replace current bank
             if (min_dist < self.D_cut):

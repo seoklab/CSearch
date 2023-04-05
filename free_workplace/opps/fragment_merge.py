@@ -87,7 +87,6 @@ class Molecule_Pool(object):
         frag_s = set()
 
         for i, mol in enumerate(self.mol_s):
-            mol.decompose(method='BRICS')
             frag_s.update(mol.pieces)
 
             mol_block = Chem.MolToMolBlock(mol.RDKmol)
@@ -105,7 +104,6 @@ class Molecule_Pool(object):
         frag_s = set()
 
         for i, mol in enumerate(self.mol_s):
-            mol.decompose(method='BRICS')
             frag_s.update(mol.pieces)
 
             mol_block = Chem.MolToMolBlock(mol.RDKmol)
@@ -135,7 +133,8 @@ class Molecule(object):
 
     ##MOVE MOLECULE TO CORE
     # read molecule information
-    def __init__(self, smiles, RDKmol, source=None, build_3d=False):
+    def __init__(self, smiles, RDKmol,
+                 source=None, build_3d=False, decompose_method='BRICS'):
         self.smiles = smiles
         self.RDKmol = RDKmol
         self.source = source
@@ -148,7 +147,14 @@ class Molecule(object):
         if build_3d:
             self._build_mol2_3D()
 
-        self.pieces: Set[str] = set()
+        self.decompose_method = decompose_method
+        self._pieces: Set[str] = set()
+
+    @property
+    def pieces(self):
+        if not self._pieces:
+            self._decompose()
+        return self._pieces
 
     @classmethod
     def from_smiles(cls, smiles: str, source=None, build_3d=False):
@@ -167,6 +173,7 @@ class Molecule(object):
             self._build_mol2_3D()
 
         self.determine_functional_groups()
+        self._decompose()
 
     def __repr__(self):
         return self.smiles
@@ -189,21 +196,18 @@ class Molecule(object):
         self.is_3d = True
         self._build_mol2_3D()
 
-    def decompose(self, method='BRICS'):
-        if self.pieces:
-            return
-
+    def _decompose(self):
         # for BRICS retrosynthesis
-        if method == 'BRICS':
+        if self.decompose_method == 'BRICS':
             pieces = BRICS.BRICSDecompose(
                 self.RDKmol, minFragmentSize=4,
                 singlePass=True, keepNonLeafNodes=True)
-        elif method == 'RECAP':
+        elif self.decompose_method == 'RECAP':
             pieces = Recap.RecapDecompose(self.RDKmol)
         else:
             raise NotImplementedError
 
-        self.pieces = set(pieces)
+        self._pieces = set(pieces)
 
     def determine_functional_groups(self):
         # for in-silico reaction
