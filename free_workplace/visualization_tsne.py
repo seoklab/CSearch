@@ -38,7 +38,7 @@ def make_fp_array(smi_list,fpty):
         arr = np.array(b)
         fp_compl.append(arr)
     return fp_compl
-    # 
+    #
 def main(args):
     #if args.smi == None:
     #    print('Please Write the smi file with its path')
@@ -51,7 +51,7 @@ def main(args):
     n = len(compl)
     compl = np.array(compl)
     if args.label:
-        energy_pool = energy_calc(bank_smiles, "csa", args.pdbid) 
+        energy_pool = energy_calc(bank_smiles, "csa", args.pdbid)
     X_embedded = TSNE(n_components=2, learning_rate='auto', init='random',random_state=21,perplexity=3).fit_transform(compl)
     x = []
     y = []
@@ -87,4 +87,3 @@ if __name__=="__main__":
     for k, v in vars(args).items():
         print (k, ": ", v)
     main(args)
-    

@@ -67,13 +67,10 @@ def check_lipinski_filter(mol):
     # Passed all filters
     return False
 
+
 def check_catalog_filters(RDKmol, filters):
-    filtered = False
-    for filter in filters:
-        if filter.HasMatch(RDKmol):
-            filtered=True
-            break
-    return filtered
+    return any(filter.HasMatch(RDKmol) for filter in filters)
+
 
 # def main():
 #     import sys

@@ -19,7 +19,7 @@ def draw(smi_fn, output_prefix=None):
 if __name__=='__main__':
     mol2_fn = sys.argv[1]
     draw(mol2_fn)
-    
+
 #    import glob
 #    mol2_fn_s = glob.glob('*/tmp.mol2')
 #    for i, mol2_fn in enumerate(mol2_fn_s):

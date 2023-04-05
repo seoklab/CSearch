@@ -2,7 +2,7 @@ import os
 import json
 import tempfile
 import subprocess as sp
-from typing import List
+from typing import List, Set
 
 from rdkit import Chem
 from rdkit.Chem import Recap,BRICS,Descriptors
@@ -126,6 +126,8 @@ class Molecule(object):
         if build_3d:
             self._build_mol2_3D()
 
+        self.pieces: Set[str] = []
+
     @classmethod
     def from_smiles(cls, smiles: str, source=None, build_3d=False):
         RDKmol = Chem.MolFromSmiles(smiles)
@@ -176,11 +178,15 @@ class Molecule(object):
     def decompose(self, method='BRICS'):
         # for BRICS retrosynthesis
         if method == 'BRICS':
-            self.pieces = BRICS.BRICSDecompose(
+            pieces = BRICS.BRICSDecompose(
                 self.RDKmol, minFragmentSize=4,
                 singlePass=True, keepNonLeafNodes=True)
         elif method == 'RECAP':
-            self.pieces = Recap.RecapDecompose(self.RDKmol)
+            pieces = Recap.RecapDecompose(self.RDKmol)
+        else:
+            raise NotImplementedError
+
+        self.pieces = set(pieces)
 
     def determine_functional_groups(self):
         # for in-silico reaction
@@ -226,7 +232,7 @@ def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
         if NumRadicalElectrons(mol) != 0:
             Have_Rad = True
         gen_mol_s.append(mol)
-        
+
     return gen_mol_s, Have_Rad
 
 def calc_tanimoto_distance(mol1, mol2):

@@ -11,11 +11,11 @@ from tdc.single_pred import Tox
 
 
 ATOM_VOCAB = [
-	'C', 'N', 'O', 'S', 'F', 
+	'C', 'N', 'O', 'S', 'F',
 	'H', 'Si', 'P', 'Cl', 'Br',
 	'Li', 'Na', 'K', 'Mg', 'Ca',
 	'Fe', 'As', 'Al', 'I', 'B',
-	'V', 'Tl', 'Sb', 'Sn', 'Ag', 
+	'V', 'Tl', 'Sb', 'Sn', 'Ag',
 	'Pd', 'Co', 'Se', 'Ti', 'Zn',
 	'Ge', 'Cu', 'Au', 'Ni', 'Cd',
 	'Mn', 'Cr', 'Pt', 'Hg', 'Pb'
@@ -35,7 +35,7 @@ def get_atom_feature(atom):
 	atom_feature += one_of_k_encoding(atom.GetImplicitValence(), [0, 1, 2, 3, 4, 5])
 	atom_feature += [atom.GetIsAromatic()]
 	return atom_feature
-	
+
 
 def get_bond_feature(bond):
 	bt = bond.GetBondType()
@@ -118,16 +118,16 @@ def get_dataset(
 
 class MyDataset(torch.utils.data.Dataset):
 	def __init__(
-			self, 
+			self,
 			smi_list
 		):
 		self.smi_list = smi_list
-	
+
 	def __len__(self):
 		return len(self.smi_list)
-	
+
 	def __getitem__(
-			self, 
+			self,
 			idx
 		):
 		return self.smi_list[idx]
@@ -145,7 +145,7 @@ def debugging():
 	train_set = split['train']
 	valid_set = split['valid']
 	test_set = split['test']
-	
+
 	smi_train, label_train = get_smi_and_label(train_set)
 	graph = get_molecular_graph(smi_train[0])
 

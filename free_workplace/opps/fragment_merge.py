@@ -4,10 +4,10 @@ import json
 import tempfile
 import subprocess as sp
 import numpy as np
-from typing import List
+from typing import List, Set
 
 from rdkit import Chem
-from rdkit.Chem import Recap,BRICS,Descriptors
+from rdkit.Chem import Recap, BRICS, AllChem, DataStructs
 from rdkit.Chem.Descriptors import NumRadicalElectrons
 from openbabel import pybel
 from openbabel.pybel import readfile, readstring
@@ -42,7 +42,7 @@ class Molecule_Pool(object):
         return self.mol_s[i]
 
     def __repr__(self):
-        smi_s = '\n'.join(['%s'%mol.smiles for mol in self.mol_s])
+        smi_s = '\n'.join(map(str, self.mol_s))
         return smi_s
 
     def read_molecules_from_smiles_fn(self, smi_fn):
@@ -87,7 +87,6 @@ class Molecule_Pool(object):
         frag_s = set()
 
         for i, mol in enumerate(self.mol_s):
-            mol.decompose(method='BRICS')
             frag_s.update(mol.pieces)
 
             mol_block = Chem.MolToMolBlock(mol.RDKmol)
@@ -105,7 +104,6 @@ class Molecule_Pool(object):
         frag_s = set()
 
         for i, mol in enumerate(self.mol_s):
-            mol.decompose(method='BRICS')
             frag_s.update(mol.pieces)
 
             mol_block = Chem.MolToMolBlock(mol.RDKmol)
@@ -122,22 +120,21 @@ class Molecule_Pool(object):
 
     def determine_functional_groups(self):
         for mol in self.mol_s:
-            if not len(mol.HasFunctionalGroup) == 0:
+            if mol.HasFunctionalGroup:
                 continue
             mol.determine_functional_groups()
-
-    def make_fragments_set(self):
-        b = set(seed_mol.pieces)
-            
 
 
 class Molecule(object):
     fn_func_json = '/home/hakjean/galaxy2/developments/MolGen/db_chembl/All_Rxns_functional_groups.json'
-    functional_group_dict: dict = get_dict_from_json_file(fn_func_json)
+    functional_group_dict: dict = {
+        fgrp: Chem.MolFromSmarts(smarts)
+        for fgrp, smarts in get_dict_from_json_file(fn_func_json).items()}
 
     ##MOVE MOLECULE TO CORE
     # read molecule information
-    def __init__(self, smiles, RDKmol, source=None, build_3d=False):
+    def __init__(self, smiles, RDKmol,
+                 source=None, build_3d=False, decompose_method='BRICS'):
         self.smiles = smiles
         self.RDKmol = RDKmol
         self.source = source
@@ -149,6 +146,15 @@ class Molecule(object):
         self.mol2_block: List[str] = []
         if build_3d:
             self._build_mol2_3D()
+
+        self.decompose_method = decompose_method
+        self._pieces: Set[str] = set()
+
+    @property
+    def pieces(self):
+        if not self._pieces:
+            self._decompose()
+        return self._pieces
 
     @classmethod
     def from_smiles(cls, smiles: str, source=None, build_3d=False):
@@ -167,21 +173,14 @@ class Molecule(object):
             self._build_mol2_3D()
 
         self.determine_functional_groups()
+        self._decompose()
 
     def __repr__(self):
         return self.smiles
 
     def _build_mol2_3D(self):
-        with tempfile.NamedTemporaryFile(mode='w+t') as temp_fn_smi:
-            temp_fn_smi.write(self.smiles)
-            temp_fn_smi.flush()
-
-            ret = sp.run(
-                ["corina", '-i', "t=smiles", temp_fn_smi.name, "-o", "t=mol2"],
-                stdout=sp.PIPE, check=True, text=True)
-
-        os.unlink("corina.trc")
-
+        ret = sp.run(["corina", '-i', "t=smiles", "-o", "t=mol2", "-t", "n"],
+                     input=self.smiles, stdout=sp.PIPE, check=True, text=True)
         self.mol2_block = [line for line in ret.stdout.splitlines()
                            if not line.startswith('#')]
         if not self.mol2_block:
@@ -197,22 +196,24 @@ class Molecule(object):
         self.is_3d = True
         self._build_mol2_3D()
 
-    def decompose(self, method='BRICS'):
+    def _decompose(self):
         # for BRICS retrosynthesis
-        if method == 'BRICS':
-            self.pieces = BRICS.BRICSDecompose(
+        if self.decompose_method == 'BRICS':
+            pieces = BRICS.BRICSDecompose(
                 self.RDKmol, minFragmentSize=4,
                 singlePass=True, keepNonLeafNodes=True)
-        elif method == 'RECAP':
-            self.pieces = Recap.RecapDecompose(self.RDKmol)
+        elif self.decompose_method == 'RECAP':
+            pieces = Recap.RecapDecompose(self.RDKmol)
+        else:
+            raise NotImplementedError
+
+        self._pieces = set(pieces)
 
     def determine_functional_groups(self):
         # for in-silico reaction
-        self.HasFunctionalGroup = {}
-        for fgrp, smarts in self.functional_group_dict.items():
-            substructure = Chem.MolFromSmarts(smarts)
-            self.HasFunctionalGroup[fgrp] = \
-                self.RDKmol.HasSubstructMatch(substructure)
+        self.HasFunctionalGroup = {
+            fgrp: self.RDKmol.HasSubstructMatch(substruct)
+            for fgrp, substruct in self.functional_group_dict.items()}
 
     def draw(self, output_fn='output.png'):
         # 2d visualization of molecules
@@ -227,8 +228,8 @@ i_start = 0
 def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
     Have_Rad = False
     global i_start
-    seed_s = set(seed_mol.pieces)
-    frag_s = set(partner_mol.pieces)
+    seed_s = seed_mol.pieces
+    frag_s = partner_mol.pieces
 
     fragms = [Chem.MolFromSmiles(x) for x in frag_s]
     seedms = [Chem.MolFromSmiles(x) for x in seed_s]
@@ -255,17 +256,18 @@ def gen_crossover(seed_mol, partner_mol, filters=None, filter_lipinski=False):
             rad_mol_s.append(mol)
             continue
         gen_mol_s.append(mol)
-        
+
     return gen_mol_s, rad_mol_s, Have_Rad
 
 def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski=False):
-    Have_Rad = False 
     global i_start
+    Have_Rad = False
+    seed_s = seed_mol.pieces
+
     build_block_s = set()
-    seed_s = set(seed_mol.pieces)
     a = random.sample(building_block_pool, k=50)
     for i in a:
-        build_block_s.update(set(i.pieces))
+        build_block_s.update(i.pieces)
 
     seedms = [Chem.MolFromSmiles(x) for x in seed_s]
     buildms = [Chem.MolFromSmiles(x) for x in build_block_s]
@@ -276,7 +278,7 @@ def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski
     rad_mol_s = []
     for mol in ms:
         Chem.SanitizeMol(mol)
-        if not filters == None:
+        if filters is not None:
             check_catalog = check_catalog_filters(mol, filters)
             if check_catalog:
                 continue
@@ -291,31 +293,14 @@ def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski
             rad_mol_s.append(mol)
             continue
         gen_mol_s.append(mol)
-        
-    return gen_mol_s, rad_mol_s, Have_Rad
 
-def make_fragments_set(seed_mol):
-    b = set(seed_mol.pieces)
-    return b
+    return gen_mol_s, rad_mol_s, Have_Rad
 
 
 def calc_tanimoto_distance(mol1, mol2):
-    mol1 = str(mol1)
-    mol2 = str(mol2)
-    if mol1.find("~") != -1:
-        mol1 = mol1.replace("~","")
-    if mol2.find("~") != -1:
-        mol2 = mol2.replace("~","")
-    mol1 = pybel.readstring("smi",mol1)
-    mol2 = pybel.readstring("smi",mol2)
-    fp1 = mol1.calcfp(fptype="fp4")
-    fp2 = mol2.calcfp(fptype="fp4")
-    #mol1 = Chem.rdmolfiles.MolFromSmiles(str(mol1))
-    #mol2 = Chem.rdmolfiles.MolFromSmiles(str(mol2))
-    #fp1 = FingerprintMols.FingerprintMol(mol1)
-    #fp2 = FingerprintMols.FingerprintMol(mol2)
-    tani = fp1|fp2
-    #tani = DataStructs.FingerprintSimilarity(fp1,fp2)
+    fp1 = AllChem.GetMorganFingerprint(mol1.RDKmol, 2)
+    fp2 = AllChem.GetMorganFingerprint(mol2.RDKmol, 2)
+    tani = DataStructs.TanimotoSimilarity(fp1, fp2)
     dist = 1.0-tani
     return dist
 

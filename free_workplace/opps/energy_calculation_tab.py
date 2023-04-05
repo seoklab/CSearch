@@ -14,6 +14,47 @@ from .libs.io_inference import MyDataset, my_collate_fn
 from .libs.utils import set_seed, set_device
 
 
+_models = {}
+
+
+def _init_model(pdbid: str):
+    a = torch.cuda.current_device()
+    device = set_device(use_gpu=True, gpu_idx=a)
+
+    model = MyModel(
+        model_type='gcn',
+        num_layers=4,
+        hidden_dim=128,
+        readout='pma',
+        dropout_prob=0.2,
+        out_dim=2,
+    )
+    model = model.to(device)
+
+    if pdbid == "4DJQ":
+        save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/4djq_gcn_128_pma_m2cdo.pth'
+    elif pdbid == "5P9H":
+        save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/5p9h_gcn_128_pma.pth'
+    elif pdbid == "6M0K":
+        save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/save/MCDO_gcn_128_pma_mcdo.pth'
+    else:
+        raise ValueError('Invalid pdbid: you should choose pdbid in [4DJQ, 5P9H, 6M0K]')
+
+    ckpt = torch.load(save_path, map_location=device)
+    model.load_state_dict(ckpt['model_state_dict'])
+    model.eval()
+
+    _models[pdbid] = model
+
+
+def get_model(pdbid: str):
+    try:
+        return _models[pdbid]
+    except KeyError:
+        _init_model(pdbid)
+        return _models[pdbid]
+
+
 def input_check(input_files):
     if input_type == 'smi':
         smi_f = input_file
@@ -31,118 +72,60 @@ def input_check(input_files):
 
     return smiles
 
-def sa_calc(input_smiles):
-    output_sa = []
+
+def sa_calc(input_mols):
     sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
     import sascorer
-    for i in input_smiles:
-        m = Chem.MolFromSmiles(str(i))
-        s = sascorer.calculateScore(m)
-        output_sa.append(s)
+
+    output_sa = [sascorer.calculateScore(mol) for mol in input_mols]
     output_sa = list(np.around(output_sa, 3))
     return output_sa
 
 
-def qed_calc(input_smiles):
-    output_qed = []
-    for i in input_smiles:
-        m = Chem.MolFromSmiles(str(i))
-        qed = Chem.QED.qed(m)
-        output_qed.append(qed)
-
+def qed_calc(input_mols):
+    output_qed = [Chem.QED.qed(mol) for mol in input_mols]
     output_qed = list(np.around(output_qed, 3))
     return output_qed
 
-def energy_calc(input_smiles, input_file, input_pdbid):
+
+def energy_calc(input_mols, input_file, input_pdbid):
+    # Set random seeds and device
+    set_seed(seed=621)
+    a = torch.cuda.current_device()
+    device = set_device(use_gpu=True, gpu_idx=a)
+
     if input_file == 'csa':
-        # Set random seeds and device
-        set_seed(seed=621)
-        a = torch.cuda.current_device()
-        device = set_device(use_gpu=True, gpu_idx=a)
-
-        # Call smiles from input
-        smiles_in = input_smiles
-        #print(smiles_in)
-        #for ii in smiles_in:
-        #    if ii.find('~') != -1:
-
-        #        ii.replace('~','')
-        test_ds = MyDataset(smi_list=smiles_in)
+        test_ds = MyDataset(input_mols)
         test_loader = DataLoader(
             dataset=test_ds,
 		    batch_size=128,
 		    shuffle=False,
-		    num_workers=8,
 		    collate_fn=my_collate_fn
     	)
-        #print("test_loader")
-        #print(test_loader)
-        #Construct model and load trained parameters if it is possible
-        reo = 'pma'
-        #if input_pdbid == "5P9H":
-        #    reo = 'mean'
 
-        model = MyModel(
-            model_type = 'gcn',
-            num_layers=4,
-		    hidden_dim=128,
-		    readout=reo,
-		    dropout_prob=0.2,
-		    out_dim=2,
-        )
-        model = model.to(device)
-
-        if input_pdbid == "4DJQ":
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/4djq_gcn_128_pma_m2cdo.pth'
-        elif input_pdbid == "5P9H":
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/5p9h_gcn_128_pma.pth'
-        elif input_pdbid == "6M0K":
-            save_path = '/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/save/MCDO_gcn_128_pma_mcdo.pth'
-        ckpt = torch.load(save_path, map_location=device)
-        model.load_state_dict(ckpt['model_state_dict'])
-        model.eval()
-        #ff = open('/home/hakjean/galaxy2/developments/MolGen/MolGenCSA/free_workplace/opps/results/csv_workingplace.csv','w', newline='')
+        model = get_model(input_pdbid)
 
         with torch.no_grad():
             pred_list = []
-            smi_list = []
-            for i, batch in enumerate(test_loader):
-                st = time.time()
-
+            for graph in test_loader:
                 tmp_list = []
-                graph_tmp = batch[0]
-                smi = batch[1]
-                for _ in range(0,10):
-                    graph = graph_tmp
-                    graph = graph.to(device)
-                    pred, alpha = model(graph, training=True)
+                graph = graph.to(device)
+                for _ in range(0, 10):
+                    tmp_graph = graph.clone()
+                    pred, _ = model(tmp_graph)
                     pred = pred.unsqueeze(-1)
                     tmp_list.append(pred)
 
                 tmp_list = torch.cat(tmp_list, dim=-1)
                 mean_list = torch.mean(tmp_list, dim=-1)
 
-                pred_list.append(mean_list[:,0])
-
-                smi_list.extend(smi)
-
-
+                pred_list.append(mean_list[:, 0])
 
         pred_list = torch.cat(pred_list, dim=0).detach().cpu().numpy()
-
-
-
         pred_list = list(np.around(pred_list, 3))
         galigandE = pred_list
-	    #smi_list
-	    #pred_list
-
-
-
-
-
-
         return galigandE
+
     if input_file == "single":
         # Set random seeds and device
         set_seed(seed=621)
@@ -152,7 +135,7 @@ def energy_calc(input_smiles, input_file, input_pdbid):
         )
 
         # Call smiles from input
-        smiles_in = input_smiles
+        smiles_in = input_mols
         #print(smiles_in)
         if smiles_in.find('~') != -1:
 
