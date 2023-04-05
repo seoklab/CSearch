@@ -98,10 +98,10 @@ def energy_calc(input_mols, input_file, input_pdbid):
         test_ds = MyDataset(input_mols)
         test_loader = DataLoader(
             dataset=test_ds,
-		    batch_size=128,
-		    shuffle=False,
-		    collate_fn=my_collate_fn
-    	)
+            batch_size=128,
+            shuffle=False,
+            collate_fn=my_collate_fn
+        )
 
         model = get_model(input_pdbid)
 
@@ -143,11 +143,11 @@ def energy_calc(input_mols, input_file, input_pdbid):
         test_ds = MyDataset(smi_list=[smiles_in])
         test_loader = DataLoader(
             dataset=test_ds,
-		    batch_size=64,
-		    shuffle=False,
-		    num_workers=8,
-		    collate_fn=my_collate_fn
-    	)
+            batch_size=64,
+            shuffle=False,
+            num_workers=8,
+            collate_fn=my_collate_fn
+        )
 
         #Construct model and load trained parameters if it is possible
         reo = 'pma'
@@ -155,12 +155,12 @@ def energy_calc(input_mols, input_file, input_pdbid):
             reo = 'mean'
 
         model = MyModel(
-            model_type = 'gcn',
+            model_type='gcn',
             num_layers=4,
-		    hidden_dim=128,
-		    readout=reo,
-		    dropout_prob=0.2,
-		    out_dim=2,
+            hidden_dim=128,
+            readout=reo,
+            dropout_prob=0.2,
+            out_dim=2,
         )
         model = model.to(device)
 
@@ -207,8 +207,8 @@ def energy_calc(input_mols, input_file, input_pdbid):
 
         pred_list = list(np.around(pred_list, 3))
         galigandE = pred_list[0]
-	    #smi_list
-	    #pred_list
+        #smi_list
+        #pred_list
 
 
 
