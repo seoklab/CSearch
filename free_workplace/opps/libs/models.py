@@ -35,7 +35,7 @@ class MyModel(nn.Module):
         self.embedding_edge = nn.Linear(initial_edge_dim, hidden_dim, bias=False)
         self.readout = readout
 
-        self.mp_layers = torch.nn.ModuleList()
+        self.mp_layers = torch.nn.Sequential()
         for _ in range(self.num_layers):
             mp_layer = None
             if model_type == 'gcn':
@@ -84,11 +84,9 @@ class MyModel(nn.Module):
         if self.apply_sigmoid:
             self.sigmoid = F.sigmoid
 
-
     def forward(
             self,
             graph,
-            training=False,
         ):
         h = self.embedding_node(graph.ndata['h'].float())
         e_ij = self.embedding_edge(graph.edata['e_ij'].float())
@@ -96,11 +94,7 @@ class MyModel(nn.Module):
         graph.edata['e_ij'] = e_ij
 
         # Update the node features
-        for i in range(self.num_layers):
-            graph = self.mp_layers[i](
-                graph=graph,
-                training=training
-            )
+        graph = self.mp_layers(graph)
 
         # Aggregate the node features and apply the last linear layer to compute the logit
         alpha = None

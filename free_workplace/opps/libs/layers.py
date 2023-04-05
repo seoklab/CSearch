@@ -48,13 +48,12 @@ class GraphConvolution(nn.Module):
 
         self.act = act
         self.norm = nn.LayerNorm(hidden_dim)
-        self.prob = dropout_prob
+        self.dropout = nn.Dropout(p=dropout_prob)
         self.linear = nn.Linear(hidden_dim, hidden_dim, bias=False)
 
     def forward(
             self,
             graph,
-            training=False
         ):
         h0 = graph.ndata['h']
 
@@ -63,7 +62,7 @@ class GraphConvolution(nn.Module):
         h = self.norm(h)
 
         # Apply dropout on node features
-        h = F.dropout(h, p=self.prob, training=training)
+        h = self.dropout(h)
 
         graph.ndata['h'] = h
         return graph
@@ -87,12 +86,11 @@ class GraphIsomorphism(nn.Module):
             act=act
         )
         self.norm = nn.LayerNorm(hidden_dim)
-        self.prob = dropout_prob
+        self.dropout = nn.Dropout(p=dropout_prob)
 
     def forward(
             self,
             graph,
-            training=False
         ):
         h0 = graph.ndata['h']
 
@@ -101,7 +99,7 @@ class GraphIsomorphism(nn.Module):
         h = self.norm(h)
 
         # Apply dropout on node features
-        h = F.dropout(h, p=self.prob, training=training)
+        h = self.dropout(h)
 
         graph.ndata['h'] = h
         return graph
@@ -118,7 +116,7 @@ class GraphIsomorphismEdge(nn.Module):
         super().__init__()
 
         self.norm = nn.LayerNorm(hidden_dim)
-        self.prob = dropout_prob
+        self.dropout = nn.Dropout(p=dropout_prob)
         self.mlp = MLP(
             input_dim=hidden_dim,
             hidden_dim=4*hidden_dim,
@@ -130,7 +128,6 @@ class GraphIsomorphismEdge(nn.Module):
     def forward(
             self,
             graph,
-            training=False
         ):
         h0 = graph.ndata['h']
 
@@ -141,7 +138,7 @@ class GraphIsomorphismEdge(nn.Module):
         h = self.norm(h)
 
         # Apply dropout on node features
-        h = F.dropout(h, p=self.prob, training=training)
+        h = self.dropout(h)
 
         graph.ndata['h'] = h
         return graph
@@ -169,7 +166,7 @@ class GraphAttention(nn.Module):
         self.num_heads = num_heads
         self.splitted_dim = hidden_dim // num_heads
 
-        self.prob = dropout_prob
+        self.dropout = nn.Dropout(p=dropout_prob)
 
         self.w1 = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.w2 = nn.Linear(hidden_dim, hidden_dim, bias=False)
@@ -184,7 +181,6 @@ class GraphAttention(nn.Module):
     def forward(
             self,
             graph,
-            training=False
         ):
         h0 = graph.ndata['h']
         e_ij = graph.edata['e_ij']
@@ -213,7 +209,7 @@ class GraphAttention(nn.Module):
         h = self.norm(h)
 
         # Apply dropout on node features
-        h = F.dropout(h, p=self.prob, training=training)
+        h = self.dropout(h)
 
         graph.ndata['h'] = h
         return graph
