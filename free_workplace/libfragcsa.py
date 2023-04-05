@@ -219,7 +219,7 @@ class CSA(object):
                 radical_mother += str(self.bank_pool[i_seed])
                 try:
                     radical_father += str(partner_mol2)
-                except:
+                except Exception:
                     radical_father += partner_mol2
                 for rad_mol in Rad_mol_s:
                     radical_son.append(str(rad_mol))
@@ -259,7 +259,7 @@ class CSA(object):
                 radical_mother += str(self.bank_pool[i_seed])
                 try:
                     radical_father += str(partner_mol2)
-                except:
+                except Exception:
                     radical_father += partner_mol2
                 for rad_mol in Rad_mol_s:
                     radical_son.append(str(rad_mol))
