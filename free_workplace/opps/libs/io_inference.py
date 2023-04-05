@@ -94,14 +94,9 @@ def get_smi_and_label(dataset):
 
 
 def my_collate_fn(batch):
-	graph_list = []
-	smi_list = []
-	for i, smi in enumerate(batch):
-		graph = get_molecular_graph(smi)
-		graph_list.append(graph)
-		smi_list.append(smi)
-	graph_list = dgl.batch(graph_list)
-	return graph_list, smi_list
+	graph_list = [get_molecular_graph(mol) for mol in batch]
+	batch = dgl.batch(graph_list)
+	return batch
 
 
 def get_dataset(
@@ -117,20 +112,14 @@ def get_dataset(
 
 
 class MyDataset(torch.utils.data.Dataset):
-	def __init__(
-			self,
-			smi_list
-		):
-		self.smi_list = smi_list
+	def __init__(self, mols):
+		self.mols = mols
 
 	def __len__(self):
-		return len(self.smi_list)
+		return len(self.mols)
 
-	def __getitem__(
-			self,
-			idx
-		):
-		return self.smi_list[idx]
+	def __getitem__(self, idx):
+		return self.mols[idx]
 
 
 def debugging():

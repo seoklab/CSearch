@@ -102,12 +102,11 @@ class CSA(object):
                 if len(self.bank_pool) == self.n_bank:
                     break
         self.update_functional_groups()
-        initial_smiles = [
-            mol.smiles.replace("~", "") for mol in self.bank_pool]
-        self.energy_bank_pool = energy_calc(initial_smiles, "csa", self.pdbid)
+        initial_mols = [mol.RDKmol for mol in self.bank_pool]
+        self.energy_bank_pool = energy_calc(initial_mols, "csa", self.pdbid)
         self.bank_gen_type = ['o'] * self.n_bank
-        self.bank_qed_s = qed_calc(initial_smiles)
-        self.bank_sa_s = sa_calc(initial_smiles)
+        self.bank_qed_s = qed_calc(initial_mols)
+        self.bank_sa_s = sa_calc(initial_mols)
         if args.frtrack:
             self.bank_frg = [make_fragments_set(i) for i in self.bank_pool]
         smiles_block_s = []
@@ -294,12 +293,10 @@ class CSA(object):
             for _ in range(0, mutation_count):
                 new_mol_gen_type.append('mut')
 
-        new_qed_s = qed_calc(
-            [mol.smiles for mol in new_mol_s])
-        new_sa_s = sa_calc(
-            [mol.smiles for mol in new_mol_s])
-        new_energy_s = energy_calc(
-            [mol.smiles for mol in new_mol_s], "csa", self.pdbid)
+        mols = [mol.RDKmol for mol in new_mol_s]
+        new_qed_s = qed_calc(mols)
+        new_sa_s = sa_calc(mols)
+        new_energy_s = energy_calc(mols, "csa", self.pdbid)
         operat_count = (frag_merge_count, mutation_count)
         return (new_mol_s, new_energy_s, new_mol_gen_type,
                 new_qed_s, new_sa_s, operat_count)
@@ -316,8 +313,7 @@ class CSA(object):
                 continue
 
             # check lipinski filter
-            smi_mol = Chem.MolFromSmiles(i_mol.smiles)
-            if check_lipinski_filter(smi_mol):
+            if check_lipinski_filter(i_mol.RDKmol):
                 continue
             # check closest bank member
 
