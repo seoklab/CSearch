@@ -243,8 +243,7 @@ class CSA(object):
 
             for gen_RDKmol in gen_RDKmol_s:
                 try:
-                    new_mol = Molecule.from_rdkit(
-                        gen_RDKmol, build_3d=True, source='BRICS')
+                    new_mol = Molecule.from_rdkit(gen_RDKmol, source='BRICS')
                     new_mol_s.append(new_mol)
                     if len(new_mol_s) >= self.n_bank:
                         break
@@ -285,7 +284,7 @@ class CSA(object):
             for gen_RDKmol in gen_RDKmol_s:
                 try:
                     mutation_all = Molecule.from_rdkit(
-                        gen_RDKmol, build_3d=True, source='BRICS')
+                        gen_RDKmol, source='BRICS')
                     mutation_all_s.append(mutation_all)
                     if len(mutation_all_s) >= self.n_bank:
                         break
