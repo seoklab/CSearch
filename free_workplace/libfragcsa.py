@@ -340,7 +340,7 @@ class CSA(object):
                     if args.frtrack:
                         print(
                             f'New molecule Fragments:{self.bank_frg[min_idx]}')
-                    if not min_idx in self.seed_mask:
+                    if min_idx not in self.seed_mask:
                         self.seed_mask.append(min_idx)
             else:
                 print('B%d %.3f was replaced to %d %.3f in new group' %
@@ -356,7 +356,7 @@ class CSA(object):
                 if args.frtrack:
                     print('New molecule Fragments:' +
                           str(self.bank_frg[i_Emax_bank_u]))
-                if not i_Emax_bank_u in self.seed_mask:
+                if i_Emax_bank_u not in self.seed_mask:
                     self.seed_mask.append(i_Emax_bank_u)
 
     def print_log(self):

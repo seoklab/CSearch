@@ -122,7 +122,7 @@ class Molecule_Pool(object):
 
     def determine_functional_groups(self):
         for mol in self.mol_s:
-            if not len(mol.HasFunctionalGroup) == 0:
+            if mol.HasFunctionalGroup:
                 continue
             mol.determine_functional_groups()
 
@@ -274,7 +274,7 @@ def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski
     rad_mol_s = []
     for mol in ms:
         Chem.SanitizeMol(mol)
-        if not filters == None:
+        if filters is not None:
             check_catalog = check_catalog_filters(mol, filters)
             if check_catalog:
                 continue

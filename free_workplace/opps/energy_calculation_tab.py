@@ -122,20 +122,10 @@ def energy_calc(input_mols, input_file, input_pdbid):
                 pred_list.append(mean_list[:, 0])
 
         pred_list = torch.cat(pred_list, dim=0).detach().cpu().numpy()
-
-
-
         pred_list = list(np.around(pred_list, 3))
         galigandE = pred_list
-	    #smi_list
-	    #pred_list
-
-
-
-
-
-
         return galigandE
+
     if input_file == "single":
         # Set random seeds and device
         set_seed(seed=621)
