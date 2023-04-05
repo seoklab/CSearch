@@ -190,6 +190,9 @@ class Molecule(object):
         self._build_mol2_3D()
 
     def decompose(self, method='BRICS'):
+        if self.pieces:
+            return
+
         # for BRICS retrosynthesis
         if method == 'BRICS':
             pieces = BRICS.BRICSDecompose(
