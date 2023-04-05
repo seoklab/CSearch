@@ -7,7 +7,7 @@ import numpy as np
 from typing import List
 
 from rdkit import Chem
-from rdkit.Chem import Recap,BRICS,Descriptors
+from rdkit.Chem import Recap, BRICS, AllChem, DataStructs
 from rdkit.Chem.Descriptors import NumRadicalElectrons
 from openbabel import pybel
 from openbabel.pybel import readfile, readstring
@@ -292,22 +292,9 @@ def make_fragments_set(seed_mol):
 
 
 def calc_tanimoto_distance(mol1, mol2):
-    mol1 = str(mol1)
-    mol2 = str(mol2)
-    if mol1.find("~") != -1:
-        mol1 = mol1.replace("~","")
-    if mol2.find("~") != -1:
-        mol2 = mol2.replace("~","")
-    mol1 = pybel.readstring("smi",mol1)
-    mol2 = pybel.readstring("smi",mol2)
-    fp1 = mol1.calcfp(fptype="fp4")
-    fp2 = mol2.calcfp(fptype="fp4")
-    #mol1 = Chem.rdmolfiles.MolFromSmiles(str(mol1))
-    #mol2 = Chem.rdmolfiles.MolFromSmiles(str(mol2))
-    #fp1 = FingerprintMols.FingerprintMol(mol1)
-    #fp2 = FingerprintMols.FingerprintMol(mol2)
-    tani = fp1|fp2
-    #tani = DataStructs.FingerprintSimilarity(fp1,fp2)
+    fp1 = AllChem.GetMorganFingerprint(mol1.RDKmol, 2)
+    fp2 = AllChem.GetMorganFingerprint(mol2.RDKmol, 2)
+    tani = DataStructs.TanimotoSimilarity(fp1, fp2)
     dist = 1.0-tani
     return dist
 
