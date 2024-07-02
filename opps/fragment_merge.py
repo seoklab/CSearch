@@ -15,7 +15,7 @@ from rdkit.Chem import Recap, BRICS, AllChem, DataStructs, RDConfig, rdMolDescri
 
 from .libfilter import check_catalog_filters, check_lipinski_filter
 
-__all__ = ["Molecule_Pool", "Molecule",
+__all__ = ["Molecule",
            "get_dict_from_json_file", "gen_mashup",
            "calc_tanimoto_distance", "fix_smiles"]
 
@@ -69,105 +69,6 @@ def returnwmolist(weight, molist):
         w.append(i/weight.sum())
     molarray = np.random.choice(np.array(molist), len(molist), p=w)
     return molarray.tolist()
-
-
-class Molecule_Pool(object):
-    # CSA bank related variables and functions
-    def __init__(self, input_fn, n_mol=None):
-        self.mol_s: List[Molecule] = []
-        if input_fn.endswith('mol2'):
-            self.read_molecules_from_mol2_fn_pybel(input_fn, n_mol)
-        else:
-            self.read_molecules_from_smiles_fn(input_fn, n_mol)
-
-    def __len__(self):
-        return len(self.mol_s)
-
-    def __getitem__(self,i):
-        return self.mol_s[i]
-
-    def __repr__(self):
-        smi_s = '\n'.join(map(str, self.mol_s))
-        return smi_s
-
-    def read_molecules_from_smiles_fn(self, smi_fn):
-        suppl = Chem.SmilesMolSupplier(smi_fn, delimiter='\t', titleLine=False)
-        for RDKmol in suppl:
-            mol = Molecule.from_rdkit(RDKmol, build_3d=True)
-            self.mol_s.append(mol)
-
-    def read_molecules_from_mol2_fn(self, mol2_fn, sanitize=True):
-        # Giving many errors, kukelize problem
-        mol2_block_s = []
-        mol_lines = []
-        i_mol = 0
-
-        with open(mol2_fn, 'r') as f:
-            for line in f:
-                if line.startswith('@<TRIPOS>MOLECULE'):
-                    if not i_mol == 0:
-                        mol2_block = ''.join(mol_lines)
-                        mol2_block_s.append(mol2_block)
-                    mol_lines = []
-                    i_mol += 1
-                mol_lines.append(line)
-            if i_mol > 0:
-                mol2_block = ''.join(mol_lines)
-                mol2_block_s.append(mol2_block)
-
-        for block in mol2_block_s:
-            RDKmol = Chem.MolFromMol2Block(block,sanitize=sanitize)
-            mol = Molecule.from_rdkit(RDKmol)
-            self.mol_s.append(mol)
-
-    def read_molecules_from_mol2_fn_pybel(self, mol2_fn):
-        for mol_pybel in readfile("mol2", mol2_fn):
-            smiles = mol_pybel.write()
-            smiles = fix_smiles(smiles) #OKAY?
-
-            mol = Molecule.from_smiles(smiles, build_3d=True)
-            self.mol_s.append(mol)
-
-    def gen_mashup(self):
-        frag_s = set()
-
-        for i, mol in enumerate(self.mol_s):
-            frag_s.update(mol.pieces)
-
-            mol_block = Chem.MolToMolBlock(mol.RDKmol)
-            mol_pybel = readstring('mol', mol_block)
-            mol_pybel.draw(show=False, filename=f'generated/start_{i}.png')
-
-        fragms = list(map(Chem.MolFromSmiles, frag_s))
-        ms = BRICS.BRICSBuild(fragms, scrambleReagents=True)
-        for i, mol in enumerate(ms):
-            mol_block = Chem.MolToMolBlock(mol)
-            mol_pybel = readstring('mol', mol_block)
-            mol_pybel.draw(show=False, filename=f'generated/gen_{i}.png')
-
-    def gen_fr_mutation(self):
-        frag_s = set()
-
-        for i, mol in enumerate(self.mol_s):
-            frag_s.update(mol.pieces)
-
-            mol_block = Chem.MolToMolBlock(mol.RDKmol)
-            mol_pybel = readstring('mol', mol_block)
-            mol_pybel.draw(show=False, filename=f'generated/start_{i}.png')
-
-        fragms = list(map(Chem.MolFromSmiles, frag_s))
-        ms = BRICS.BRICSBuild(fragms, scrambleReagents=True)
-        for i, mol in enumerate(ms):
-            mol_block = Chem.MolToMolBlock(mol)
-            mol_pybel = readstring('mol', mol_block)
-            mol_pybel.draw(show=False, filename=f'generated/gen_{i}.png')
-
-
-    def determine_functional_groups(self):
-        for mol in self.mol_s:
-            if mol.HasFunctionalGroup:
-                continue
-            mol.determine_functional_groups()
 
 
 class Molecule(object):
