@@ -72,7 +72,7 @@ def returnwmolist(weight, molist):
 
 
 class Molecule(object):
-    fn_func_json = '/home/hakjean/galaxy2/developments/MolGen/db_chembl/All_Rxns_functional_groups.json'
+    fn_func_json = 'opps/save/All_Rxns_functional_groups.json'
     functional_group_dict: dict = {
         fgrp: Chem.MolFromSmarts(smarts)
         for fgrp, smarts in get_dict_from_json_file(fn_func_json).items()}
@@ -326,11 +326,10 @@ def find_similar_frag(piece):
                         enafrg = smile_str[0]
                         return enafrg
         else:
-            continue            
-    
+            continue
+
 def fix_smiles(smiles):
     smiles = smiles.replace('[NH3]', '[NH3+]')
     smiles = smiles.replace('[NH2]', '[NH2+]')
     smiles = smiles.replace('[NH]', '[NH+]')
     return smiles
-
