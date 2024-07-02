@@ -233,30 +233,6 @@ def calc_tanimoto_distance(mol1, mol2):
     dist = 1.0-tani
     return dist
 
-def replace_lowfrg(molpieces):
-    #print(molpieces)
-    molpiecelist=list(molpieces)
-    molpiecen = molpiecelist
-    for i, mol in enumerate(molpiecen):
-        if not '*' in mol:
-            molpiecelist[i] = None
-            continue
-        if "[2*]" in mol:
-            continue
-        a = check_hav_minus4(mol)
-        if a:
-            frg = find_similar_frag(mol)
-            if frg == 0:
-                continue
-            print(f'{molpiecelist[i]} to {frg}')
-            molpiecelist[i] = frg
-            #print(molpiecelist[i])
-            break
-        else:
-            continue
-            #print(frg)
-    molpiecelist = list(filter(None, molpiecelist))
-    return set(molpiecelist)
 
 def frg_weight(molpieces,disc=False):
     #b = []
@@ -314,19 +290,6 @@ def check_hav_minus4(molecule):
                     return True
     return False
 
-def find_similar_frag(piece):
-    environnum = [1] + list(range(3,17))
-    piece = str(piece)
-    for i in environnum:
-        if piece.find(f'[{i}*]') != -1:
-            with open(f'/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/Enamine_list_fragments_{i}.smi') as h:
-                for line in h:
-                    smile_str = line.split()
-                    if calc_tanimoto_distance(Molecule.from_smiles(piece), Molecule.from_smiles(smile_str[0])) < 0.4:
-                        enafrg = smile_str[0]
-                        return enafrg
-        else:
-            continue
 
 def fix_smiles(smiles):
     smiles = smiles.replace('[NH3]', '[NH3+]')
