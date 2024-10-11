@@ -3,9 +3,12 @@ import time
 import numpy as np
 
 import torch
+import subprocess
+import nuri
 from molscore import MolScore, MockGenerator
 from moleval.metrics.metrics import GetMetrics
 from torch.utils.data import DataLoader
+from rdkit import Chem
 from rdkit.Chem import QED
 from rdkit.Chem import RDConfig
 from rdkit.Chem.QED import qed
@@ -69,43 +72,42 @@ def qed_calc(input_mols):
     return output_qed
 
 
-def energy_calc(input_mols, input_file, input_pdbid):
+def energy_calc(input_mols, input_file_path):
     # Set random seeds and device
-    set_seed(seed=621)
-    device = torch.device('cpu')
-    if input_file == 'csa':
-        test_ds = MyDataset(input_mols)
-        test_loader = DataLoader(
-            dataset=test_ds,
-            batch_size=128,
-            shuffle=False,
-            collate_fn=my_collate_fn
-        )
+    scores = []
+    input_mols = [Chem.MolToSmiles(i) for i in input_mols]
+    for ii, i in enumerate(input_mols):
+        with open(f'smi/{ii}_f.smi','w') as f:
+            f.write(i)
+        os.chdir('/home/hakjean/galaxy2/developments/MolGen/CSearch_revised/smi/')
+        os.system(f"obabel -ismi {ii}_f.smi -omol2 -O {ii}_f.mol2 --gen3D")
+        if not os.path.exists(f"{ii}_f2.mol2"):
+            smi = next(nuri.readstring("smi",i))
+            with open(f"{ii}_f2.mol2", 'w') as gt:
+                gt.write(nuri.to_mol2(smi))
+        
+        #os.system(f"/applic/corina/corina -i t=sdf {i}_f.sdf -o t=mol2 {i}_f.mol2")
+        ff = str(subprocess.run(["galign",f"{ii}_f.mol2","/home/hakjean/galaxy2/developments/MolGen/CSearch_revised/data/6M0K_ori_3.mol2"],capture_output=True)).split()
+        print(ff)
+        energy = float(ff[11][0:6])
+            #os.system(f"galign {i}_f.mol2 {input_file_path} -s >> {i}_f.log")
+            #with open(f"{i}_f.log", 'r') as g:
+            #    for line in g:
+            #        f = line.split()
+            #        if line[2] == 'Score':
+            #            score = line[3]
+            #            scores.append(float(score)*(-100))
+            
+        os.system(f"rm *.smi")
+        #os.sytem(f"rm *.mol2")
+        scores.append(energy*-100)
+            #os.system(f"rm *.smi*")
+        #except:
+        #    scores.append(0)
+        #    continue
+        os.system(f'rm {ii}_f2.mol2')
+        os.chdir('/home/hakjean/galaxy2/developments/MolGen/CSearch_revised/')
+    return scores
 
-        model = get_model(input_pdbid)
+        
 
-        with torch.no_grad():
-            pred_list = []
-            for graph in test_loader:
-                tmp_list = []
-                graph = graph.to(device)
-                for _ in range(0, 3):
-                    tmp_graph = graph.clone()
-                    pred, _ = model(tmp_graph)
-                    pred = pred.unsqueeze(-1)
-                    tmp_list.append(pred)
-
-                tmp_list = torch.cat(tmp_list, dim=-1)
-                mean_list = torch.mean(tmp_list, dim=-1)
-                pred_list.append(mean_list[:, 0])
-        pred_list = torch.cat(pred_list, dim=0).detach().cpu().numpy()
-        if input_pdbid == '4MKC' or '3TI5' or '5P9H':
-            pred_list = list(np.around(pred_list*10,3))
-        else:
-            pred_list = list(np.around(pred_list, 3))
-        galigandE = pred_list
-        return galigandE
-
-    else:
-        raise NotImplementedError
-   

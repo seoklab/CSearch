@@ -11,7 +11,7 @@ import re
 from typing import List, Set
 from rdkit import Chem
 from rdkit.Chem import Recap, BRICS, AllChem, DataStructs, RDConfig, rdMolDescriptors
-
+from rdkit.DataStructs import cDataStructs as CD
 
 from .libfilter import check_catalog_filters, check_lipinski_filter
 
@@ -45,7 +45,29 @@ def calcfrgscore(mol):
     score1 /= nf
     return score1
 
+def calc_tanimoto_distances(mollists,t_mol):
+    dists = [calc_tanimoto_distance(mol,t_mol)*100 for mol in mollists]
+    return dists
 
+
+def calc_dice_distances(mollists,t_mol):
+    dists = [calc_dice_distance(mol,t_mol)*100 for mol in mollists]
+    return dists
+
+
+def calc_tversky_distances(mollists,t_mol):
+    dists = [calc_tversky_distance(mol,t_mol) for mol in mollists]
+    return dists
+
+
+def calc_rogot_distances(mollists,t_mol):
+    dists = [calc_rogot_distance(mol,t_mol) for mol in mollists]
+    return dists
+
+
+def calc_maccs_distances(mollists,t_mol):
+    dists = [calc_maccs_distance(mol,t_mol) for mol in mollists]
+    return dists
 
 
 
@@ -263,17 +285,19 @@ class Molecule(object):
 global i_start
 i_start = 0
 
-def gen_mashup(seed_mol, partner_mol, filters=None, filter_lipinski=False):
+def gen_mashup(seed_mol, partner_mol, filters=None, filter_lipinski=False, pubweight=True):
     #Have_Rad = False
     global i_start
     seed_s = seed_mol.pieces
     partner_s = partner_mol.pieces
-    seed_w = frg_weight(seed_s)
-    frag_w = frg_weight(partner_s)
+    if pubweight:
+        seed_w = frg_weight(seed_s)
+        frag_w = frg_weight(partner_s)
     fragms = [Chem.MolFromSmiles(x) for x in partner_s]
     seedms = [Chem.MolFromSmiles(x) for x in seed_s]
-    fragms = returnwmolist(frag_w,fragms)
-    seedms = returnwmolist(seed_w,seedms)
+    if pubweight:
+        fragms = returnwmolist(frag_w,fragms)
+        seedms = returnwmolist(seed_w,seedms)
     ms = BRICS.BRICSBuild(fragms, scrambleReagents=True, seeds=seedms)
     ms = list(ms)
 
@@ -292,12 +316,12 @@ def gen_mashup(seed_mol, partner_mol, filters=None, filter_lipinski=False):
 
     return gen_mol_s
 
-def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski=False):
+def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski=False, pubweight=True):
     global i_start
 
     seed_s = seed_mol.pieces
-
-    seed_w = frg_weight(seed_s)
+    if pubweight:
+        seed_w = frg_weight(seed_s)
     build_block_s = set()
     a = random.sample(building_block_pool, k=100)
     for i in a:
@@ -305,6 +329,8 @@ def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski
 
     seedms = [Chem.MolFromSmiles(x) for x in seed_s]
     buildms = [Chem.MolFromSmiles(x) for x in build_block_s]
+    if pubweight:
+        seedms = returnwmolist(seed_w,seedms)
     ms = BRICS.BRICSBuild(buildms, scrambleReagents=True, seeds=seedms)
     ms = list(ms)
 
@@ -329,7 +355,40 @@ def calc_tanimoto_distance(mol1, mol2):
     fp1 = AllChem.GetMorganFingerprint(mol1.RDKmol, 2)
     fp2 = AllChem.GetMorganFingerprint(mol2.RDKmol, 2)
     tani = DataStructs.TanimotoSimilarity(fp1, fp2)
-    dist = 1.0-tani
+    dist = 1-tani
+    return dist
+
+
+def calc_dice_distance(mol1,mol2):
+    fp1 = AllChem.GetMorganFingerprint(mol1.RDKmol, 2)
+    fp2 = AllChem.GetMorganFingerprint(mol2.RDKmol, 2)
+    tani = DataStructs.DiceSimilarity(fp1, fp2)
+    dist = 1-tani
+    return dist
+
+
+def calc_tversky_distance(mol1,mol2):
+    fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1.RDKmol, 2)
+    fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2.RDKmol, 2)
+    tani = CD.TverskySimilarity(fp1, fp2, 2, 2)
+    dist = 1-tani
+    return dist
+
+def calc_rogot_distance(mol1,mol2):
+    fp1 = AllChem.GetMorganFingerprintAsBitVect(mol1.RDKmol, 2)
+    fp2 = AllChem.GetMorganFingerprintAsBitVect(mol2.RDKmol, 2)
+    tani = CD.RogotGoldbergSimilarity(fp1, fp2, 2, 2)
+    dist = 1-tani 
+    return dist
+
+
+def calc_maccs_distance(mol1, mol2):
+    #mol1 = Chem.MolFromSmiles(str(mol1))
+    #mol2 = Chem.MolFromSmiles(str(mol2))   
+    fp1 = AllChem.GetMACCSKeysFingerprint(mol1.RDKmol)
+    fp2 = AllChem.GetMACCSKeysFingerprint(mol2.RDKmol)
+    tani = DataStructs.FingerprintSimilarity(fp1,fp2)
+    dist =  1- tani
     return dist
 
 def replace_lowfrg(molpieces):

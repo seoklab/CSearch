@@ -1,14 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import os,sys
 import dgl
 
-from libs.layers import GraphConvolution
-from libs.layers import GraphIsomorphism
-from libs.layers import GraphIsomorphismEdge
-from libs.layers import GraphAttention
-from libs.layers import PMALayer
+#sys.path.append("/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/free_workplace/opps/")
+from .layers import GraphConvolution
+from .layers import GraphIsomorphism
+from .layers import GraphIsomorphismEdge
+from .layers import GraphAttention
+from .layers import PMALayer
 
 
 class MyModel(nn.Module):
