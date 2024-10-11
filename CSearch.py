@@ -9,7 +9,7 @@ from typing import List
 from rdkit import Chem
 from rdkit.Chem import AllChem, DataStructs
 
-import Galaxy
+#import Galaxy
 import numpy as np
 from scipy.spatial import distance as D
 
@@ -46,12 +46,12 @@ class CSA(object):
             self.num = args.num
 
 
-    def initialize_csa(self, job, init_bank_smiles_fn,
+    def initialize_csa(self, init_bank_smiles_fn,
                        building_blocks_smiles_fn, n_proc=None):
-        self.job = job
-        n_proc = Galaxy.core.define_n_proc(n_proc)
-        n_proc = 8
-        self.n_proc = n_proc
+        #self.job = job
+ #       n_proc = Galaxy.core.define_n_proc(n_proc)
+#        n_proc = 8
+#        self.n_proc = n_proc
         self.type = init_bank_smiles_fn[-8:-4]
         # initial bank
         self.read_initial_bank(init_bank_smiles_fn)
@@ -126,7 +126,8 @@ class CSA(object):
         self.bank_sa_s = sa_calc(initial_mols)
         self.bank_frg = [i.pieces for i in self.bank_pool]
         self.out_dir = f"Result/{self.pdbid}/{self.date}/Bank{self.n_bank}_seed{self.n_seed}_sc{self.n_seed_cycle}_mx{self.max_opt_cycle}_nst{self.nst}_{self.type}_{args.dmin}_{self.num}"
-        self.job.mkdir(self.out_dir, cd=False)
+        os.system(f"mkdir {self.out_dir}")
+        #self.job.mkdir(self.out_dir, cd=False)
         try:
             os.system(f"rm {self.out_dir}/*")
         except:
@@ -395,9 +396,9 @@ if __name__ == '__main__':
     build_fn = os.path.abspath(args.build_fn)
 
     start = time()
-    job = Galaxy.initialize(title='Test_OptMol', mkdir=False)
+#    job = Galaxy.initialize(title='Test_OptMol', mkdir=False)
     csa = CSA()
-    csa.initialize_csa(job, smiles_fn, build_fn)
+    csa.initialize_csa(smiles_fn, build_fn)
     csa.run()
     #csa.badseeds()
     end = time()
