@@ -15,7 +15,7 @@ from rdkit.Chem import Recap, BRICS, AllChem, DataStructs, RDConfig, rdMolDescri
 
 from .libfilter import check_catalog_filters, check_lipinski_filter
 
-__all__ = ["Molecule",
+__all__ = ["Molecule_Pool", "Molecule",
            "get_dict_from_json_file", "gen_mashup",
            "calc_tanimoto_distance", "fix_smiles"]
 
@@ -71,8 +71,107 @@ def returnwmolist(weight, molist):
     return molarray.tolist()
 
 
+class Molecule_Pool(object):
+    # CSA bank related variables and functions
+    def __init__(self, input_fn, n_mol=None):
+        self.mol_s: List[Molecule] = []
+        if input_fn.endswith('mol2'):
+            self.read_molecules_from_mol2_fn_pybel(input_fn, n_mol)
+        else:
+            self.read_molecules_from_smiles_fn(input_fn, n_mol)
+
+    def __len__(self):
+        return len(self.mol_s)
+
+    def __getitem__(self,i):
+        return self.mol_s[i]
+
+    def __repr__(self):
+        smi_s = '\n'.join(map(str, self.mol_s))
+        return smi_s
+
+    def read_molecules_from_smiles_fn(self, smi_fn):
+        suppl = Chem.SmilesMolSupplier(smi_fn, delimiter='\t', titleLine=False)
+        for RDKmol in suppl:
+            mol = Molecule.from_rdkit(RDKmol, build_3d=True)
+            self.mol_s.append(mol)
+
+    def read_molecules_from_mol2_fn(self, mol2_fn, sanitize=True):
+        # Giving many errors, kukelize problem
+        mol2_block_s = []
+        mol_lines = []
+        i_mol = 0
+
+        with open(mol2_fn, 'r') as f:
+            for line in f:
+                if line.startswith('@<TRIPOS>MOLECULE'):
+                    if not i_mol == 0:
+                        mol2_block = ''.join(mol_lines)
+                        mol2_block_s.append(mol2_block)
+                    mol_lines = []
+                    i_mol += 1
+                mol_lines.append(line)
+            if i_mol > 0:
+                mol2_block = ''.join(mol_lines)
+                mol2_block_s.append(mol2_block)
+
+        for block in mol2_block_s:
+            RDKmol = Chem.MolFromMol2Block(block,sanitize=sanitize)
+            mol = Molecule.from_rdkit(RDKmol)
+            self.mol_s.append(mol)
+
+    def read_molecules_from_mol2_fn_pybel(self, mol2_fn):
+        for mol_pybel in readfile("mol2", mol2_fn):
+            smiles = mol_pybel.write()
+            smiles = fix_smiles(smiles) #OKAY?
+
+            mol = Molecule.from_smiles(smiles, build_3d=True)
+            self.mol_s.append(mol)
+
+    def gen_mashup(self):
+        frag_s = set()
+
+        for i, mol in enumerate(self.mol_s):
+            frag_s.update(mol.pieces)
+
+            mol_block = Chem.MolToMolBlock(mol.RDKmol)
+            mol_pybel = readstring('mol', mol_block)
+            mol_pybel.draw(show=False, filename=f'generated/start_{i}.png')
+
+        fragms = list(map(Chem.MolFromSmiles, frag_s))
+        ms = BRICS.BRICSBuild(fragms, scrambleReagents=True)
+        for i, mol in enumerate(ms):
+            mol_block = Chem.MolToMolBlock(mol)
+            mol_pybel = readstring('mol', mol_block)
+            mol_pybel.draw(show=False, filename=f'generated/gen_{i}.png')
+
+    def gen_fr_mutation(self):
+        frag_s = set()
+
+        for i, mol in enumerate(self.mol_s):
+            frag_s.update(mol.pieces)
+
+            mol_block = Chem.MolToMolBlock(mol.RDKmol)
+            mol_pybel = readstring('mol', mol_block)
+            mol_pybel.draw(show=False, filename=f'generated/start_{i}.png')
+
+        fragms = list(map(Chem.MolFromSmiles, frag_s))
+        ms = BRICS.BRICSBuild(fragms, scrambleReagents=True)
+        for i, mol in enumerate(ms):
+            mol_block = Chem.MolToMolBlock(mol)
+            mol_pybel = readstring('mol', mol_block)
+            mol_pybel.draw(show=False, filename=f'generated/gen_{i}.png')
+
+
+    def determine_functional_groups(self):
+        for mol in self.mol_s:
+            if mol.HasFunctionalGroup:
+                continue
+            mol.determine_functional_groups()
+
+
 class Molecule(object):
-    fn_func_json = 'opps/save/All_Rxns_functional_groups.json'
+    fn_func_json = '/home/hakjean/galaxy2/developments/MolGen/db_chembl/All_Rxns_functional_groups.json'
     functional_group_dict: dict = {
         fgrp: Chem.MolFromSmarts(smarts)
         for fgrp, smarts in get_dict_from_json_file(fn_func_json).items()}
@@ -233,6 +332,30 @@ def calc_tanimoto_distance(mol1, mol2):
     dist = 1.0-tani
     return dist
 
+def replace_lowfrg(molpieces):
+    #print(molpieces)
+    molpiecelist=list(molpieces)
+    molpiecen = molpiecelist
+    for i, mol in enumerate(molpiecen):
+        if not '*' in mol:
+            molpiecelist[i] = None
+            continue
+        if "[2*]" in mol:
+            continue
+        a = check_hav_minus4(mol)
+        if a:
+            frg = find_similar_frag(mol)
+            if frg == 0:
+                continue
+            print(f'{molpiecelist[i]} to {frg}')
+            molpiecelist[i] = frg
+            #print(molpiecelist[i])
+            break
+        else:
+            continue
+            #print(frg)
+    molpiecelist = list(filter(None, molpiecelist))
+    return set(molpiecelist)
 
 def frg_weight(molpieces,disc=False):
     #b = []
@@ -290,9 +413,23 @@ def check_hav_minus4(molecule):
                     return True
     return False
 
-
+def find_similar_frag(piece):
+    environnum = [1] + list(range(3,17))
+    piece = str(piece)
+    for i in environnum:
+        if piece.find(f'[{i}*]') != -1:
+            with open(f'/home/hakjean/galaxy2/developments/MolGen/MolGenCSA.git/data/Enamine_list_fragments_{i}.smi') as h:
+                for line in h:
+                    smile_str = line.split()
+                    if calc_tanimoto_distance(Molecule.from_smiles(piece), Molecule.from_smiles(smile_str[0])) < 0.4:
+                        enafrg = smile_str[0]
+                        return enafrg
+        else:
+            continue            
+    
 def fix_smiles(smiles):
     smiles = smiles.replace('[NH3]', '[NH3+]')
     smiles = smiles.replace('[NH2]', '[NH2+]')
     smiles = smiles.replace('[NH]', '[NH+]')
     return smiles
+
