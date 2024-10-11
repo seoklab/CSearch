@@ -17,7 +17,7 @@ from opps.libs.utils import str2bool
 from opps.libfilter import prepare_catalog_filters, check_lipinski_filter
 from opps.fragment_merge import (
     Molecule, gen_fr_mutation, gen_mashup, calc_tanimoto_distance)
-from opps.energy_calculation import energy_calc, qed_calc, sa_calc
+from opps.energy_calculation_galign_input import energy_calc, qed_calc, sa_calc
 
 
 
@@ -37,7 +37,7 @@ class CSA(object):
         self.pdbid = args.pdbid
         self.catalog_filters = prepare_catalog_filters(PAINS=True)
         self.filter_lipinski = args.filter
-        self.ref_lig = ref_lig
+        self.refer_path = args.refer
         self.bankset = set([])
         self.date = date.today()
         if int(args.num) < 10:
@@ -57,6 +57,13 @@ class CSA(object):
         self.read_initial_bank(init_bank_smiles_fn)
         self.building_block_setup(building_blocks_smiles_fn)
         self.setup_initial_Dcut()
+
+    def getf(self, a):
+        if a < -95:
+            return 1
+        else:
+            return 0
+
 
     def run(self):
         self.write_bank(0)
@@ -84,6 +91,11 @@ class CSA(object):
                 self.D_cut = max(self.D_cut, self.D_min)
                 print(f"D_cut : {self.D_cut}")
                 #d_cut cycle update
+                fa = [self.getf(i) for i in self.energy_bank_pool]
+                if fa.count(1) > 30:
+                    print(f'Total op {totalop}')
+                    return
+ 
                 if self.D_cut < self.D_min:
                     if self.dcut_cycle >= self.n_dcut_cycle:
                         continue
@@ -120,12 +132,13 @@ class CSA(object):
         print('str:{str(mol)}')
         self.update_functional_groups()
         initial_mols = [mol.RDKmol for mol in self.bank_pool]
-        self.energy_bank_pool = energy_calc(initial_mols, "csa", self.pdbid)
+        self.energy_bank_pool = energy_calc(initial_mols, f"/home/hakjean/galaxy2/developments/MolGen/CSearch_revised/data/{self.refer_path}",f"{self.refer_path[0:2]}")
+        print(self.energy_bank_pool)
         self.bank_gen_type = ['o'] * self.n_bank
         self.bank_qed_s = qed_calc(initial_mols)
         self.bank_sa_s = sa_calc(initial_mols)
         self.bank_frg = [i.pieces for i in self.bank_pool]
-        self.out_dir = f"Result/{self.pdbid}/{self.date}/Bank{self.n_bank}_seed{self.n_seed}_sc{self.n_seed_cycle}_mx{self.max_opt_cycle}_nst{self.nst}_{self.type}_{args.dmin}_{self.num}"
+        self.out_dir =  f"Result/{self.pdbid}/{self.date}/Bank{self.n_bank}_seed{self.n_seed}_sc{self.n_seed_cycle}_mx{self.max_opt_cycle}_nst{self.nst}_{self.type}_{args.dmin}_{self.num}_{self.refer_path[0:2]}_{self.refer_path[-8:-5]}"
         self.job.mkdir(self.out_dir, cd=False)
         try:
             os.system(f"rm {self.out_dir}/*")
@@ -268,10 +281,11 @@ class CSA(object):
         print(new_mol_gen_type)
         mutation_count += len(mutation_all_s)
         mols = [mol.RDKmol for mol in new_mol_s]
-        
+        #molz= [str(mol) for mol in new_mol_s]
         new_qed_s = qed_calc(mols)
         new_sa_s = sa_calc(mols)
-        new_energy_s = energy_calc(mols, "csa", self.pdbid)
+        new_energy_s = energy_calc(mols,f"/home/hakjean/galaxy2/developments/MolGen/CSearch_revised/data/{self.refer_path}",f"{self.refer_path[0:2]}")
+        print(new_energy_s)
         operat_count = (frag_merge_count, mutation_count)
         return (new_mol_s, new_energy_s, new_mol_gen_type,
                 new_qed_s, new_sa_s, operat_count)
@@ -326,18 +340,14 @@ class CSA(object):
 
     def write_bank(self, i_cycle):
         first = True
-        if self.pdbid == '6M0K':
-            x = 10
-        else:
-            x = 100
         with open(f'{self.out_dir}/csa_{i_cycle}.csv', 'wt') as mj:
             for i, (i_mol, i_energy, i_gentype, i_qed_s, i_sa_s) in enumerate(zip(self.bank_pool, self.energy_bank_pool, self.bank_gen_type, self.bank_qed_s, self.bank_sa_s)):
                 if first:
-                    mj.write(',SMILES,GD3_Energy,Gentype,QED,SA\n')
-                    mj.write(f'{i},{i_mol},{float(i_energy) * x},{i_gentype},{i_qed_s},{i_sa_s}\n')
+                    mj.write(',SMILES,Galign_energy,Gentype,QED,SA\n')
+                    mj.write(f'{i},{i_mol},{float(i_energy)},{i_gentype},{i_qed_s},{i_sa_s}\n')
                     first = False
                     continue
-                mj.write(f'{i},{i_mol},{float(i_energy) * x},{i_gentype},{i_qed_s},{i_sa_s}\n')
+                mj.write(f'{i},{i_mol},{float(i_energy)},{i_gentype},{i_qed_s},{i_sa_s}\n')
 
         if i_cycle == self.max_opt_cycle or self.seed_cycle == self.n_seed_cycle:
             with open(f'{self.out_dir}/CSearch_result.smi','wt') as si:
@@ -391,6 +401,10 @@ if __name__ == '__main__':
     parser.add_argument(
         "-d", "--dmin", type=int, default=5,
         help='dmin denominator')
+    parser.add_argument(
+        "-r", "--refer", type=str, required=True, default='data/3TI5_ori_1.mol2',
+        help='refer_mol2_galign')
+    
     args = parser.parse_args()
     smiles_fn = os.path.abspath(args.smiles_fn)
     build_fn = os.path.abspath(args.build_fn)

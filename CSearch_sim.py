@@ -9,14 +9,12 @@ from typing import List
 from rdkit import Chem
 from rdkit.Chem import AllChem, DataStructs
 
-import Galaxy
 import numpy as np
 from scipy.spatial import distance as D
 
 from opps.libs.utils import str2bool
 from opps.libfilter import prepare_catalog_filters, check_lipinski_filter
-from opps.fragment_merge import (
-    Molecule, gen_fr_mutation, gen_mashup, calc_tanimoto_distance)
+from opps.fragment_merge import Molecule, gen_fr_mutation, gen_mashup, calc_tanimoto_distances, calc_rogot_distances,calc_maccs_distances, calc_dice_distances, calc_tversky_distances, calc_tanimoto_distance
 from opps.energy_calculation import energy_calc, qed_calc, sa_calc
 
 
@@ -40,18 +38,35 @@ class CSA(object):
         self.ref_lig = ref_lig
         self.bankset = set([])
         self.date = date.today()
+        self.simtype = args.simtype
+        with open(f"data/{self.pdbid}_ori.smi", 'r') as f_n:
+            for i_mol, line in enumerate(f_n):
+                smile_str = line.split()
+                smiles_str = smile_str[0]
+                smiles = smiles_str.replace('[NH3]', '[NH3+]')
+                smiles = smiles.replace('[NH2]', '[NH2+]')
+                smiles = smiles.replace('[NH]', '[NH+]')
+
+                mol = Molecule.from_smiles(smiles, source="INITIAL")
+                if mol.RDKmol is None:
+                    print(f'error processing {i_mol}th molecule')
+                    continue
+                if not mol is None:
+                    break
+        self.refer_mol = mol
         if int(args.num) < 10:
             self.num = 0 + args.num
         else:
             self.num = args.num
 
 
-    def initialize_csa(self, job, init_bank_smiles_fn,
+    def initialize_csa(self, init_bank_smiles_fn,
                        building_blocks_smiles_fn, n_proc=None):
-        self.job = job
-        n_proc = Galaxy.core.define_n_proc(n_proc)
-        n_proc = 8
-        self.n_proc = n_proc
+        #self.job = job
+        #n_proc = Galaxy.core.define_n_proc(n_proc)
+        
+        #n_proc = 8
+        #self.n_proc = n_proc
         self.type = init_bank_smiles_fn[-8:-4]
         # initial bank
         self.read_initial_bank(init_bank_smiles_fn)
@@ -120,13 +135,14 @@ class CSA(object):
         print('str:{str(mol)}')
         self.update_functional_groups()
         initial_mols = [mol.RDKmol for mol in self.bank_pool]
-        self.energy_bank_pool = energy_calc(initial_mols, "csa", self.pdbid)
+        self.energy_bank_pool = self.get_simil_energy(self.bank_pool)
+        # self.energy_bank_pool = energy_calc(initial_mols, "csa", self.pdbid)
         self.bank_gen_type = ['o'] * self.n_bank
         self.bank_qed_s = qed_calc(initial_mols)
         self.bank_sa_s = sa_calc(initial_mols)
         self.bank_frg = [i.pieces for i in self.bank_pool]
-        self.out_dir = f"Result/{self.pdbid}/{self.date}/Bank{self.n_bank}_seed{self.n_seed}_sc{self.n_seed_cycle}_mx{self.max_opt_cycle}_nst{self.nst}_{self.type}_{args.dmin}_{self.num}"
-        self.job.mkdir(self.out_dir, cd=False)
+        self.out_dir = f"Result/{self.pdbid}/{self.date}/Bank{self.n_bank}_seed{self.n_seed}_sc{self.n_seed_cycle}_mx{self.max_opt_cycle}_nst{self.nst}_{self.type}_{args.dmin}_{self.num}_{self.simtype}"
+        os.system(f"mkdir {self.out_dir}")
         try:
             os.system(f"rm {self.out_dir}/*")
         except:
@@ -207,6 +223,22 @@ class CSA(object):
         for mol in self.bank_pool:
             mol.determine_functional_groups()
 
+
+    def get_simil_energy(self, mols):
+        if self.simtype == "tani":
+            energy_bank_pool = calc_tanimoto_distances(mols,self.refer_mol)
+        elif self.simtype == "dice":
+            energy_bank_pool = calc_dice_distances(mols,self.refer_mol)
+        elif self.simtype == "rogo":
+            energy_bank_pool = calc_rogot_distances(mols,self.refer_mol)
+        elif self.simtype == "tver":
+            energy_bank_pool = calc_tversky_distances(mols,self.refer_mol)
+        elif self.simtype == "maccs":
+            energy_bank_pool = calc_maccs_distances(mols,self.refer_mol)#
+        energy_bank_pools = [i * 100 for i in energy_bank_pool]
+        return energy_bank_pools
+
+
     def make_new_confs(self):
         seed_selected = self.select_seeds()
         new_mol_gen_type = []
@@ -224,8 +256,8 @@ class CSA(object):
             print(self.catalog_filters)
             gen_RDKmol_s = gen_mashup(seed_mol,
                     partner_mol,filters=self.catalog_filters,filter_lipinski=self.filter_lipinski)#,pubweight=False)
-            if len(gen_RDKmol_s) > max_select_brics:
-                gen_RDKmol_s = random.sample(gen_RDKmol_s, max_select_brics)
+            #if len(gen_RDKmol_s) > max_select_brics:
+            #    gen_RDKmol_s = random.sample(gen_RDKmol_s, max_select_brics)
 
             for gen_RDKmol in gen_RDKmol_s:
                 try:
@@ -247,8 +279,8 @@ class CSA(object):
                 seed_mol, self.building_pool,
                 filters=self.catalog_filters,
                 filter_lipinski=self.filter_lipinski)#,pubweight=False)
-            if len(gen_RDKmol_s) > max_select_brics:
-                gen_RDKmol_s = random.sample(gen_RDKmol_s, max_select_brics)
+            #if len(gen_RDKmol_s) > max_select_brics:
+            #    gen_RDKmol_s = random.sample(gen_RDKmol_s, max_select_brics)
               
             for gen_RDKmol in gen_RDKmol_s:
                 try:
@@ -271,7 +303,9 @@ class CSA(object):
         
         new_qed_s = qed_calc(mols)
         new_sa_s = sa_calc(mols)
-        new_energy_s = energy_calc(mols, "csa", self.pdbid)
+        new_energy_s = self.get_simil_energy(new_mol_s)
+#        new_energy_s = energy_calc(mols, "csa", self.pdbid)
+
         operat_count = (frag_merge_count, mutation_count)
         return (new_mol_s, new_energy_s, new_mol_gen_type,
                 new_qed_s, new_sa_s, operat_count)
@@ -283,7 +317,7 @@ class CSA(object):
                 zip(new_mol_s, new_energy_s, new_mol_gen_type,
                     new_qed_s, new_sa_s)):
             i_Emax_bank_u = np.argmax(self.energy_bank_pool)
-            
+              
             # check lipinski filter
             if check_lipinski_filter(i_mol.RDKmol):
                 continue
@@ -296,6 +330,7 @@ class CSA(object):
             # replace current bank
             if (min_dist < self.D_cut):
                 if i_energy < self.energy_bank_pool[min_idx]:
+
                     print(f'B{min_idx} {self.energy_bank_pool[min_idx]:.3f} '
                           f'was replaced to {i} {i_energy:.3f} in same group')
 
@@ -326,18 +361,18 @@ class CSA(object):
 
     def write_bank(self, i_cycle):
         first = True
-        if self.pdbid == '6M0K':
-            x = 10
-        else:
-            x = 100
+#        if self.pdbid == '6M0K':
+#            x = 10
+#        else:
+#            x = 100
         with open(f'{self.out_dir}/csa_{i_cycle}.csv', 'wt') as mj:
             for i, (i_mol, i_energy, i_gentype, i_qed_s, i_sa_s) in enumerate(zip(self.bank_pool, self.energy_bank_pool, self.bank_gen_type, self.bank_qed_s, self.bank_sa_s)):
                 if first:
                     mj.write(',SMILES,GD3_Energy,Gentype,QED,SA\n')
-                    mj.write(f'{i},{i_mol},{float(i_energy) * x},{i_gentype},{i_qed_s},{i_sa_s}\n')
+                    mj.write(f'{i},{i_mol},{float(i_energy)/100},{i_gentype},{i_qed_s},{i_sa_s}\n')
                     first = False
                     continue
-                mj.write(f'{i},{i_mol},{float(i_energy) * x},{i_gentype},{i_qed_s},{i_sa_s}\n')
+                mj.write(f'{i},{i_mol},{float(i_energy)/100},{i_gentype},{i_qed_s},{i_sa_s}\n')
 
         if i_cycle == self.max_opt_cycle or self.seed_cycle == self.n_seed_cycle:
             with open(f'{self.out_dir}/CSearch_result.smi','wt') as si:
@@ -391,14 +426,18 @@ if __name__ == '__main__':
     parser.add_argument(
         "-d", "--dmin", type=int, default=5,
         help='dmin denominator')
+    parser.add_argument(
+        "-x", "--simtype", type=str, default="tani",
+        help='simtype')
+    
     args = parser.parse_args()
     smiles_fn = os.path.abspath(args.smiles_fn)
     build_fn = os.path.abspath(args.build_fn)
 
     start = time()
-    job = Galaxy.initialize(title='Test_OptMol', mkdir=False)
+    #job = Galaxy.initialize(title='Test_OptMol', mkdir=False)
     csa = CSA()
-    csa.initialize_csa(job, smiles_fn, build_fn)
+    csa.initialize_csa(smiles_fn, build_fn)
     csa.run()
     #csa.badseeds()
     end = time()

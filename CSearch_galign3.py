@@ -17,7 +17,7 @@ from opps.libs.utils import str2bool
 from opps.libfilter import prepare_catalog_filters, check_lipinski_filter
 from opps.fragment_merge import (
     Molecule, gen_fr_mutation, gen_mashup, calc_tanimoto_distance)
-from opps.energy_calculation import energy_calc, qed_calc, sa_calc
+from opps.energy_calculation_galign3 import energy_calc, qed_calc, sa_calc
 
 
 
@@ -120,7 +120,8 @@ class CSA(object):
         print('str:{str(mol)}')
         self.update_functional_groups()
         initial_mols = [mol.RDKmol for mol in self.bank_pool]
-        self.energy_bank_pool = energy_calc(initial_mols, "csa", self.pdbid)
+        self.energy_bank_pool = energy_calc(initial_mols, "/home/galaxy2/developments/MolGen/CSearch_revised/data/6M0K_ori_1.mol2")
+        print(self.energy_bank_pool)
         self.bank_gen_type = ['o'] * self.n_bank
         self.bank_qed_s = qed_calc(initial_mols)
         self.bank_sa_s = sa_calc(initial_mols)
@@ -268,10 +269,11 @@ class CSA(object):
         print(new_mol_gen_type)
         mutation_count += len(mutation_all_s)
         mols = [mol.RDKmol for mol in new_mol_s]
-        
+        #molz= [str(mol) for mol in new_mol_s]
         new_qed_s = qed_calc(mols)
         new_sa_s = sa_calc(mols)
-        new_energy_s = energy_calc(mols, "csa", self.pdbid)
+        new_energy_s = energy_calc(mols,"/home/galaxy2/developments/MolGen/CSearch_revised/data/6M0K_ori_1.mol2")
+        print(new_energy_s)
         operat_count = (frag_merge_count, mutation_count)
         return (new_mol_s, new_energy_s, new_mol_gen_type,
                 new_qed_s, new_sa_s, operat_count)
