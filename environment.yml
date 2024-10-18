@@ -4,12 +4,12 @@ channels:
   - dglteam
   - nvidia
   - conda-forge
-  - defaults
 dependencies:
   - python=3.7
   - pytorch=1.13
   - pytorch-cuda=11.6
   - dgl-cuda11.6=0.9
+  - mkl<2024.0
   - rdkit
   - openbabel
   - pytdc
