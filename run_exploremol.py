@@ -30,7 +30,7 @@ for bs in bslist:
                             nst = nst*2
                         parameter = "pdb : " + pdbid + " initbank :" + si + " banknum :" + str(bs) + " seed_num : " + str(bs*sn) + " seed_cycle :" + str(sc) + " maxiter :" + str(mx) + " nst :" + str(nst) + str(dm)
                         param = pdbid + si + str(bs) + str(int(bs*sn)) +'_'+ str(sc) +'_'+ str(mx) + str(nst) + str(dm)
-                        for num in range(1,31):
+                        for num in range(1,101):
                             if num < 10:
                                 num = '0' + str(num)
                             print(parameter+str(num))
@@ -40,7 +40,7 @@ for bs in bslist:
 #SBATCH -N 1
 #SBATCH -n 1
 #SBATCH -c 6
-#SBATCH --nodelist=star0[01-40]
+#SBATCH --nodelist=star0[01-46]
 #SBATCH -J gen{pdbid}
 #SBATCH -o Result/{pdbid}/{d_today}/csa_{param}_{num}.log
 #SBATCH --nice=100000000

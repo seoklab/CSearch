@@ -4,13 +4,23 @@ channels:
   - dglteam
   - nvidia
   - conda-forge
+  - defaults
 dependencies:
   - python=3.7
   - pytorch=1.13
   - pytorch-cuda=11.6
   - dgl-cuda11.6=0.9
   - rdkit
+  - openbabel
+  - pytdc
+  - mordred
   - numpy
   - scipy
   - scikit-learn
+  - matplotlib
   - pandas
+  - prody<2
+  - jupyter
+  - pip
+  - pip:
+    - tensorflow-cpu>=2

@@ -294,9 +294,7 @@ def gen_mashup(seed_mol, partner_mol, filters=None, filter_lipinski=False):
 
 def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski=False):
     global i_start
-
     seed_s = seed_mol.pieces
-
     seed_w = frg_weight(seed_s)
     build_block_s = set()
     a = random.sample(building_block_pool, k=100)
@@ -331,31 +329,6 @@ def calc_tanimoto_distance(mol1, mol2):
     tani = DataStructs.TanimotoSimilarity(fp1, fp2)
     dist = 1.0-tani
     return dist
-
-def replace_lowfrg(molpieces):
-    #print(molpieces)
-    molpiecelist=list(molpieces)
-    molpiecen = molpiecelist
-    for i, mol in enumerate(molpiecen):
-        if not '*' in mol:
-            molpiecelist[i] = None
-            continue
-        if "[2*]" in mol:
-            continue
-        a = check_hav_minus4(mol)
-        if a:
-            frg = find_similar_frag(mol)
-            if frg == 0:
-                continue
-            print(f'{molpiecelist[i]} to {frg}')
-            molpiecelist[i] = frg
-            #print(molpiecelist[i])
-            break
-        else:
-            continue
-            #print(frg)
-    molpiecelist = list(filter(None, molpiecelist))
-    return set(molpiecelist)
 
 def frg_weight(molpieces,disc=False):
     #b = []
