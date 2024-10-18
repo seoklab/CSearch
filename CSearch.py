@@ -5,6 +5,7 @@ import argparse
 from datetime import date
 from time import time
 from typing import List
+import shutil
 
 from rdkit import Chem
 from rdkit.Chem import AllChem, DataStructs
@@ -126,12 +127,9 @@ class CSA(object):
         self.bank_sa_s = sa_calc(initial_mols)
         self.bank_frg = [i.pieces for i in self.bank_pool]
         self.out_dir = f"Result/{self.pdbid}/{self.date}/Bank{self.n_bank}_seed{self.n_seed}_sc{self.n_seed_cycle}_mx{self.max_opt_cycle}_nst{self.nst}_{self.type}_{args.dmin}_{self.num}"
-        os.system(f"mkdir {self.out_dir}")
-        #self.job.mkdir(self.out_dir, cd=False)
-        try:
-            os.system(f"rm {self.out_dir}/*")
-        except:
-            print('no file')
+
+        shutil.rmtree(self.out_dir, ignore_errors=True)
+        os.makedirs(self.out_dir)
 
        # store initial bank
         self.init_bank = self.bank_pool

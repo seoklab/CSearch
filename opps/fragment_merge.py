@@ -8,7 +8,7 @@ import math
 import gzip
 import pickle
 import re
-from typing import List, Set
+from typing import Dict, List, Set
 from rdkit import Chem
 from rdkit.Chem import Recap, BRICS, AllChem, DataStructs, RDConfig, rdMolDescriptors
 
@@ -24,29 +24,38 @@ __all__ = ["Molecule_Pool", "Molecule",
 sys.path.append(os.path.join(RDConfig.RDContribDir, 'SA_Score'))
 
 
-def calcfrgscore(mol):
-    data = pickle.load(gzip.open('opps/save/fpscores.pkl.gz'))
-    outDict = {}
-    for i in data:
-        for j in range(1, len(i)):
-            outDict[i[j]] = float(i[0])
-    global fscores
-    fscores = outDict
+def load_fpscore():
+    with gzip.open('opps/save/fpscores.pkl.gz') as f:
+        data = pickle.load(f)
 
+    fpscores: Dict[int, float] = {}
+    for score, *idxs in data:
+        score = float(score)
+        for i in idxs:
+            fpscores[i] = score
+
+    bits = np.array(list(fpscores.keys()), dtype=np.int64)
+    scores = np.array(list(fpscores.values()), dtype=np.float64)
+
+    idxs = np.argsort(bits)
+    return bits[idxs], scores[idxs]
+
+
+fpbits, fpscores = load_fpscore()
+
+
+def calcfrgscore(mol):
     # fragment score
     fp = rdMolDescriptors.GetMorganFingerprint(mol,2)
-    fps = fp.GetNonzeroElements()
-    score1 = 0.
-    nf = 0
-    for bitId, v in fps.items():
-        nf += v
-        sfp = bitId
-        score1 += fscores.get(sfp, -4) * v
-    score1 /= nf
+    fps: Dict[int, int] = fp.GetNonzeroElements()
+
+    bits = np.array(list(fps.keys()), dtype=np.int64)
+    cnts = np.array(list(fps.values()), dtype=np.int64)
+
+    bit_idxs = np.searchsorted(fpbits, bits)
+    scores = np.where(bits == fpbits[bit_idxs], fpscores[bit_idxs], -4)
+    score1 = np.average(scores, weights=cnts)
     return score1
-
-
-
 
 
 def calcfrscore(input_mols):
@@ -280,13 +289,13 @@ def gen_mashup(seed_mol, partner_mol, filters=None, filter_lipinski=False):
     gen_mol_s = []
     for mol in ms:
         Chem.SanitizeMol(mol)
-        if not filters == None:
-            check_catalog = check_catalog_filters(mol, filters)
-            if check_catalog:
-                continue
         if filter_lipinski:
             check_lipinski = check_lipinski_filter(mol)
             if check_lipinski:
+                continue
+        if not filters == None:
+            check_catalog = check_catalog_filters(mol, filters)
+            if check_catalog:
                 continue
         gen_mol_s.append(mol)
 
@@ -310,13 +319,13 @@ def gen_fr_mutation(seed_mol, building_block_pool, filters=None, filter_lipinski
 
     for mol in ms:
         Chem.SanitizeMol(mol)
-        if filters is not None:
-            check_catalog = check_catalog_filters(mol, filters)
-            if check_catalog:
-                continue
         if filter_lipinski:
             check_lipinski = check_lipinski_filter(mol)
             if check_lipinski:
+                continue
+        if filters is not None:
+            check_catalog = check_catalog_filters(mol, filters)
+            if check_catalog:
                 continue
 
         gen_mol_s.append(mol)
